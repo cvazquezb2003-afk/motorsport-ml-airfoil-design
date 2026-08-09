@@ -1,0 +1,16 @@
+{
+  "user_params": {
+    "chord_length_mm": 300.0,
+    "leading_edge_angle_deg": 8.941586,
+    "leading_edge_thickness_level": 0.768483,
+    "trailing_edge_angle_deg": 162.644093,
+    "trailing_edge_thickness_mm": 1.169465,
+    "te_upr_angle_deg": 5.668623,
+    "te_lwr_angle_deg": 2.879457,
+    "chord_angle_deg": 350.0
+  },
+  "velocidad_kmh": 290,
+  "alphas": [
+    -8
+  ]
+}

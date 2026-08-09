@@ -1,0 +1,17 @@
+{
+  "objetivo": {
+    "velocidad_kmh": 180.0,
+    "alpha_deg": -6.0
+  },
+  "reynolds": 1235992.205480356,
+  "LD_predicho": -98.90035247802734,
+  "shape_params": {
+    "chord_length_mm": 365.248309,
+    "leading_edge_angle_deg": 9.982456,
+    "leading_edge_thickness_level": 0.392258,
+    "trailing_edge_angle_deg": 166.825773,
+    "trailing_edge_thickness_mm": 3.385983,
+    "te_upr_angle_deg": 8.211795,
+    "te_lwr_angle_deg": 3.069024
+  }
+}

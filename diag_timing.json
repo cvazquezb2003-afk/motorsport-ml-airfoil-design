@@ -1,0 +1,34 @@
+{
+  "status": "ok",
+  "steps": [
+    {
+      "step": "1) Generar perfil alar en CATIA",
+      "seconds": 4.165
+    },
+    {
+      "step": "2) Crear puntos del perfil en CATIA",
+      "seconds": 15.148
+    },
+    {
+      "step": "3) Exportar nube de puntos a ASC",
+      "seconds": 8.748
+    },
+    {
+      "step": "4) Convertir ASC a DAT para XFOIL",
+      "seconds": 0.902
+    },
+    {
+      "step": "5) Ejecutar XFOIL y generar polar",
+      "seconds": 2.886
+    },
+    {
+      "step": "6) Generar graficas de polar",
+      "seconds": 2.041
+    },
+    {
+      "step": "7) Generar graficas Cp estilo XFOIL",
+      "seconds": 2.927
+    }
+  ],
+  "total_seconds": 36.817
+}

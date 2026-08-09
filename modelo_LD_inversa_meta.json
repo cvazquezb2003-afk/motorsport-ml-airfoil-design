@@ -1,0 +1,32 @@
+{
+  "target": "LD",
+  "features": [
+    "chord_length_mm",
+    "leading_edge_angle_deg",
+    "leading_edge_thickness_level",
+    "trailing_edge_angle_deg",
+    "trailing_edge_thickness_mm",
+    "te_upr_angle_deg",
+    "te_lwr_angle_deg",
+    "alpha_deg",
+    "reynolds",
+    "alpha_over_sqrtre",
+    "te_rel"
+  ],
+  "dataset": "densif_merged_150_500",
+  "n_perfiles": 944,
+  "n_filas_ok": 63496,
+  "cv_groupkfold5": {
+    "mae": 1.8956778830543435,
+    "r2": 0.9195759762481316,
+    "spearman_cond": 0.9649668817025702
+  },
+  "cv_base_solo_originales": {
+    "mae": 2.8650667597244377,
+    "r2": 0.8942470057828587,
+    "spearman_cond": 0.956521520955545
+  },
+  "nota": "PRODUCCION desde la promocion densif. Los modelos previos estan en legacy/pre_densif_20260806/. Ver PROMOCION.md para revertir.",
+  "promocionado": "2026-08-06T15:05:58",
+  "origen": "modelo_LD_inversa_densif.joblib (dataset densificado)"
+}

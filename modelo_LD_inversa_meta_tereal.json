@@ -1,0 +1,32 @@
+{
+  "target": "LD",
+  "features": [
+    "chord_length_mm",
+    "leading_edge_angle_deg",
+    "leading_edge_thickness_level",
+    "trailing_edge_angle_deg",
+    "trailing_edge_thickness_mm",
+    "te_upr_angle_deg",
+    "te_lwr_angle_deg",
+    "alpha_deg",
+    "reynolds",
+    "alpha_over_sqrtre",
+    "te_rel"
+  ],
+  "dataset": "airfoil_dataset_TEreal.csv",
+  "n_perfiles": 944,
+  "n_filas_ok": 16182,
+  "best_params": {
+    "n_estimators": 400,
+    "learning_rate": 0.02,
+    "max_depth": 10,
+    "min_child_weight": 5,
+    "subsample": 0.6,
+    "colsample_bytree": 0.9,
+    "reg_alpha": 0.5,
+    "reg_lambda": 5.0,
+    "random_state": 42,
+    "n_jobs": -1
+  },
+  "fecha": "2026-07-23T17:17:49"
+}

@@ -1,0 +1,60 @@
+# Lo que NO entra en la imagen. Complementa al .gitignore: aunque casi nada de
+# esto llega al repo, el build local se hace desde la CARPETA, no desde git, y sin
+# este fichero el contexto de build serian 342 MB.
+
+# artefactos y datos que no necesita el servidor
+legacy/
+graficas/
+
+# dataset_runs: solo los .asc, que el fallback del Cp del vecino necesita.
+# Los .dat archivados son la geometria AMPUTADA de junio y no deben viajar.
+dataset_runs/**
+!dataset_runs/**/*.asc
+eda_outputs/
+bateria_*_stars/
+ala_conceptual/
+*.CATPart
+*.pbix
+
+# el ensemble se REGENERA en el build (build_ensemble.py). Si estuviera aqui, se
+# copiaria el de la maquina de desarrollo y build_ensemble lo daria por bueno.
+ensemble_ld_sigma.joblib
+
+# datasets intermedios y superados (el de entrenamiento SI entra: lo necesita
+# build_ensemble.py)
+airfoil_dataset_densificado.csv
+airfoil_dataset_TEreal*.csv
+airfoil_dataset_legacy*.csv
+airfoil_dataset_alpha0.csv
+airfoil_dataset_multialpha.csv
+airfoil_dataset_18cond.csv
+airfoil_dataset_alphas_*.csv
+airfoil_dataset_prueba_*.csv
+_diag_oof.csv
+powerbi_*.csv
+
+# copias, temporales, logs
+*.bak
+*.bak.*
+_*.log
+_*.js
+_*.json
+*.log
+page_tmp.html
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# control de versiones y config local
+.git/
+.gitignore
+.claude/
+
+# residuo de la ultima corrida del pipeline
+airfoil_v4*.dat
+auto_export.asc
+polar_v*.txt
+cp_alpha_*.txt
+xfoil_log.txt
+*.png

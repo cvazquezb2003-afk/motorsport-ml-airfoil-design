@@ -1,0 +1,218 @@
+# =============================================================================
+# .gitignore — pipeline de generacion y analisis de perfiles alares
+#
+# Criterio: al repo va el CODIGO y la EVIDENCIA que no se puede regenerar.
+# Fuera queda todo lo que (a) se regenera solo, (b) es una copia de trabajo,
+# (c) no cabe en GitHub, o (d) podria contener credenciales.
+#
+# NADA de lo listado aqui se borra del disco: git simplemente no lo versiona.
+# =============================================================================
+
+
+# -----------------------------------------------------------------------------
+# 1. SECRETOS Y CONFIGURACION LOCAL   (nunca, bajo ningun concepto)
+# -----------------------------------------------------------------------------
+# Preventivo: hoy NO hay ningun secreto en la carpeta (barrido de 443 ficheros
+# de texto con 10 patrones: tokens de GitHub, claves de Anthropic/OpenAI/AWS/
+# Google/Slack/SendGrid, PEM, asignaciones api_key=..., URLs con credenciales).
+# Estas reglas existen para que siga siendo verdad manana.
+mcp.json
+.mcp.json
+**/mcp.json
+enviar_resumen.py
+.env
+.env.*
+*.env
+secrets.*
+*secret*
+*credential*
+*_token*
+*token.json
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*
+credentials.json
+service-account*.json
+
+# Configuracion local de la maquina (lista de permisos, rutas propias).
+# No lleva credenciales, pero es personal y no aporta a nadie mas.
+.claude/settings.local.json
+
+
+# -----------------------------------------------------------------------------
+# 2. MODELOS QUE NO CABEN EN GITHUB
+# -----------------------------------------------------------------------------
+# ensemble_ld_sigma.joblib pesa 105,85 MiB y el limite DURO de GitHub son
+# 100 MiB: el push se RECHAZA, no es un aviso. Se regenera con
+#     python winner_curse.py
+# en ~1 min (10 miembros x ~5 s). Es el artefacto mas barato de reproducir del
+# proyecto; versionarlo no aporta nada.
+#
+# Los otros tres modelos SI van al repo (14,3 MiB entre los tres):
+#   modelo_LD_inversa_xgb.joblib, modelo_CL_xgb.joblib, modelo_CD_xgb.joblib
+ensemble_ld_sigma.joblib
+
+
+# -----------------------------------------------------------------------------
+# 3. ARTEFACTOS ARCHIVADOS (superados, 145 MB)
+# -----------------------------------------------------------------------------
+# legacy/ guarda los modelos y datasets de las dos promociones anteriores
+# (TE-amputado de junio y pre-densif de agosto). Es el 43% del peso de la
+# carpeta y todo esta superado por lo que si va al repo. Se conserva EN DISCO
+# para poder revertir en 10 s (ver PROMOCION.md); no necesita estar en git.
+legacy/
+
+
+# -----------------------------------------------------------------------------
+# 4. CACHE Y FIGURAS REGENERABLES
+# -----------------------------------------------------------------------------
+# graficas/ lo reconstruyen los graficas_*.py y el propio dashboard.
+# _optimo_cache/ es cache por hash de los 7 parametros: se rellena solo.
+graficas/
+**/_optimo_cache/
+eda_outputs/
+
+# dataset_runs/: entran SOLO los .asc (1.265 ficheros, 11,4 MB de los 21,6 totales).
+#
+# POR QUE los .asc SI: son la FUENTE DE VERDAD de la geometria y el dashboard los
+# necesita para el fallback del Cp del vecino (graficas_forma._dat_tereal regenera
+# el .dat TE-real desde el .asc). Sin ellos, en el servidor ese camino no existe.
+#
+# POR QUE los .dat NO: los archivados son de JUNIO, geometria TE-AMPUTADA. Se
+# regeneraron los CSV en julio pero NUNCA esos .dat. Publicarlos seria repartir
+# 1.261 ficheros que parecen buenos y no lo son: es el error que casi envenena la
+# densificacion (10-20% de desfase en CL, invisible a simple vista).
+#
+# Las tres lineas van juntas y en este orden: git NO puede reincluir un fichero si
+# su directorio padre esta excluido, asi que hay que reincluir los DIRECTORIOS
+# (segunda linea) antes de reincluir los .asc (tercera).
+dataset_runs/**
+!dataset_runs/**/
+!dataset_runs/**/*.asc
+
+# Directorios de trabajo temporales de los pilotos y las etapas de bateria.
+_paso_b_tmp/
+_piloto_tmp/
+_te_real_tmp/
+ala_conceptual/
+
+
+# -----------------------------------------------------------------------------
+# 5. COPIAS DE TRABAJO Y TEMPORALES
+# -----------------------------------------------------------------------------
+# 39 ficheros .bak acumulados al ir editando. git los sustituye por completo.
+# EXCEPCION mas abajo: la copia del caso 10 no es una copia de trabajo, es
+# evidencia del valor original antes de corregir el artefacto de XFOIL.
+*.bak
+*.bak.*
+!bateria_densif_k2_resultados.json.pre_caso10.bak
+
+# Ficheros y logs de trabajo (el prefijo _ se ha usado siempre para esto).
+_*.log
+_*.json
+_*.js
+_*.csv
+page_tmp.html
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Sistema operativo / editores
+Thumbs.db
+desktop.ini
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+
+# -----------------------------------------------------------------------------
+# 6. ERA MVP / POWER BI — obsoleto, superado por el dashboard propio
+# -----------------------------------------------------------------------------
+# export_powerbi_data.py hardcodea RUN_ID="run_001", cuerda 250 y Re 1e6, y no
+# conoce el dataset: es de cuando habia 1 perfil x 7 angulos. Rehacerlo desde
+# airfoil_dataset.csv sale mas rapido que adaptarlo.
+export_powerbi_data.py
+open_powerbi_dashboard.py
+airfoil_dashboard.pbix
+powerbi_results_summary.csv
+powerbi_cp_summary.csv
+
+# Roto de verdad: no pasa velocidad_kmh, falla con el pipeline actual.
+test_pipeline_json.py
+
+# Sustituido por inversa_service.py (optimiza sobre un RANGO de angulo).
+inversa_service_v1_singleangle_legacy.py
+
+
+# -----------------------------------------------------------------------------
+# 7. DATASETS INTERMEDIOS Y SUPERADOS
+# -----------------------------------------------------------------------------
+# SI van al repo, y por eso NO aparecen aqui:
+#   airfoil_dataset.csv            catalogo del percentil + bounds p5-p95
+#   circuitos.csv                  los 61 circuitos
+#   bateria_*_resultados.json      evidencia del winner's curse
+#
+# Solo las 54.752 filas nuevas, antes de fusionar: redundante con el merged.
+airfoil_dataset_densificado.csv
+
+# airfoil_dataset_densif_merged.csv (13,4 MB) SI VA AL REPO.
+# Estuvo excluido mientras solo servia para reentrenar, pero el despliegue lo
+# necesita: el ensemble de sigma no cabe en GitHub y se REGENERA en el build
+# (build_ensemble.py) a partir de este CSV. Sin el, el `docker build` falla.
+# Por eso NO aparece aqui.
+
+# Copia identica del de produccion (mismo contenido, otro nombre).
+airfoil_dataset_TEreal.csv
+airfoil_dataset_TEreal_piloto.csv
+
+# Datasets de formatos/etapas anteriores. CLAUDE.md dice no borrarlos: siguen
+# EN DISCO, solo que fuera de git.
+airfoil_dataset_legacy*.csv
+airfoil_dataset_alpha0.csv
+airfoil_dataset_multialpha.csv
+airfoil_dataset_18cond.csv
+airfoil_dataset_alphas_*.csv
+airfoil_dataset_prueba_*.csv
+
+# Salidas regenerables de diagnostico y del propio pipeline.
+airfoil_points_xyz.csv
+airfoil_v4_OLD.dat
+valida_aero_resultados.csv
+ala_3d.CATPart
+
+
+# -----------------------------------------------------------------------------
+# 8. RESIDUO DE LA ULTIMA CORRIDA DEL PIPELINE (en la raiz)
+# -----------------------------------------------------------------------------
+# Cada ejecucion de pipeline_airfoil_api.py deja estos ficheros en la raiz,
+# sobrescribiendolos. Son la foto del ULTIMO perfil que se corrio, no un
+# resultado del proyecto: el archivo real de cada run vive en dataset_runs/.
+# Ojo con la BARRA INICIAL: ancla el patron a la raiz del repo. Sin ella,
+# `auto_export.asc` coincide a CUALQUIER profundidad y volvia a excluir los 1.265
+# `dataset_runs/*/auto_export.asc` que la seccion de dataset_runs acababa de
+# reincluir — y al estar mas abajo en el fichero, ganaba. Lo mismo con el .dat.
+/airfoil_v4.dat
+/auto_export.asc
+/polar_v*.txt
+/cp_alpha_*.txt
+/xfoil_log.txt
+
+# PNG sueltos de la raiz: son las gráficas del ultimo perfil (mismo caso).
+# Las figuras buenas del dashboard se regeneran con los graficas_*.py.
+polar_*.png
+cp_alpha_*.png
+perfil_*.png
+zoom_te.png
+
+# SI entran los .dat de bateria_*_stars/: son las geometrias ESTRELLA propuestas
+# por la inversa en cada caso, y sin ellas los bateria_*_resultados.json no se
+# pueden reproducir. Pesan 0,5 MB entre los 92.

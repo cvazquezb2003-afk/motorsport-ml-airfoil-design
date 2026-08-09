@@ -1,0 +1,22 @@
+{
+  "objetivo": {
+    "velocidad_kmh": 180.0,
+    "alpha_deg": -6.0
+  },
+  "fixed": {
+    "chord_length_mm": 300.0
+  },
+  "k_penalizacion": 2.0,
+  "LD_predicho": -59.63002014160156,
+  "sigma": 0.6478416323661804,
+  "J_penalizado": -59.2884521484375,
+  "shape_params": {
+    "chord_length_mm": 300.0,
+    "leading_edge_angle_deg": 9.637267,
+    "leading_edge_thickness_level": 0.448715,
+    "trailing_edge_angle_deg": 160.645354,
+    "trailing_edge_thickness_mm": 2.579221,
+    "te_upr_angle_deg": 5.460628,
+    "te_lwr_angle_deg": -1.763281
+  }
+}

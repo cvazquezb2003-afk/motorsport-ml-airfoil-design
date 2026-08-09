@@ -1,0 +1,62 @@
+nombre,pais,categoria_downforce,rango_angulo_deg,nota,confianza
+AVUS,Alemania,low,0 a 5,Dos rectas y dos curvas; drag mínimo,baja
+Baku,Azerbaiyán,low,0 a 5,Urbano con recta muy larga,alta
+Daytona óvalo,EE.UU.,low,0 a 5,Óvalo peraltado; máxima velocidad punta,alta
+Daytona trazado mixto,EE.UU.,low,0 a 5,Usa el peralte y la recta del óvalo; sigue siendo baja carga,media
+Fuji,Japón,low,0 a 5,"Recta principal de 1,5 km; prima la velocidad punta",alta
+Goodwood,Reino Unido,low,0 a 5,Trazado rápido de curvas abiertas,baja
+Indianápolis óvalo,EE.UU.,low,0 a 5,"Óvalo, máxima velocidad punta",alta
+Jeddah,Arabia Saudí,low,0 a 5,Urbano ultrarrápido,alta
+Las Vegas,EE.UU.,low,0 a 5,Urbano con rectas largas,alta
+Le Mans,Francia,low,0 a 5,"Resistencia, Mulsanne 330+ km/h, eficiencia",alta
+Montreal,Canadá,low,0 a 5,Rectas largas entre chicanes; prima el bajo drag,media
+Monza,Italia,low,0 a 5,"Templo de la velocidad, rectas largas",alta
+Red Bull Ring,Austria,low,0 a 5,Tres rectas largas y pocas curvas; prima la velocidad punta,media
+Reims-Gueux,Francia,low,0 a 5,Triángulo de carretera; velocidad punta extrema,baja
+Road America,EE.UU.,low,0 a 5,Rectas muy largas; prima el bajo drag,alta
+Assen,Países Bajos,medium,5 a 9,"Cathedral of Speed, fast-flowing",alta
+Austin COTA,EE.UU.,medium,5 a 9,Variado,alta
+Bathurst,Australia,medium,5 a 9,Rectas rápidas + montaña técnica,alta
+Brands Hatch,Reino Unido,medium,5 a 9,"Técnico, media velocidad, con desnivel",alta
+Donington Park,Reino Unido,medium,5 a 9,Fluido con desnivel,media
+Estoril,Portugal,medium,5 a 9,Extremos: tramos muy rápidos y muy lentos,media
+Hockenheim,Alemania,medium,5 a 9,"Rápidas y horquillas, equilibrado",alta
+Imola,Italia,medium,5 a 9,Rápido pero técnico,alta
+Indianápolis trazado mixto,EE.UU.,medium,5 a 9,Infield técnico más la recta del óvalo; compromiso,media
+Interlagos,Brasil,medium,5 a 9,Revirado con elevación,alta
+Jacarepaguá,Brasil,medium,5 a 9,"Plano y variado, curvas de radio medio",baja
+Jerez,España,medium,5 a 9,"Revirado técnico, curvas enlazadas",alta
+Kyalami,Sudáfrica,medium,5 a 9,Rectas largas y enlazadas en altitud; compromiso,media
+Macao Guia,Macao,medium,5 a 9,Callejero: recta larga y tramo de montaña muy estrecho,media
+Magny-Cours,Francia,medium,5 a 9,Técnico con algunas rápidas,media
+Misano,Italia,medium,5 a 9,"Sweeping corners, fluido",alta
+MotorLand Aragón,España,medium,5 a 9,"Variado, mix técnico",media
+Nürburgring GP,Alemania,medium,5 a 9,Equilibrado,media
+Nürburgring Nordschleife,Alemania,medium,5 a 9,Muy largo y variado; los tramos rápidos obligan a ceder carga,media
+Paul Ricard,Francia,medium,5 a 9,"Recta Mistral larga, tira a baja carga",alta
+Portimão,Portugal,medium,5 a 9,Montaña rusa: mix rápido/técnico con gran desnivel,alta
+Road Atlanta,EE.UU.,medium,5 a 9,Enlazadas rápidas con desnivel y una recta larga,media
+Rouen-Les-Essarts,Francia,medium,5 a 9,Carretera rápida con fuerte desnivel,baja
+Sebring,EE.UU.,medium,5 a 9,Antiguo aeródromo; mezcla de rápidas y lentas sobre firme roto,media
+Sepang,Malasia,medium,5 a 9,"Rectas largas, pero muchas curvas de radio medio enlazadas",media
+Shanghái,China,medium,5 a 9,Variado,media
+Spa-Francorchamps,Bélgica,medium,5 a 9,"Kemmel pide poca carga; Eau Rouge y el sector 2, más",alta
+Termas de Río Hondo,Argentina,medium,5 a 9,Revirado pero con recta larga; acaba en compromiso,media
+Valencia Ricardo Tormo,España,medium,5 a 9,Compacto y revirado,media
+Vallelunga,Italia,medium,5 a 9,Mix técnico,media
+Watkins Glen,EE.UU.,medium,5 a 9,Rápido y fluido con desnivel; equilibrado,media
+Yas Marina,Emiratos Árabes Unidos,medium,5 a 9,Rectas largas con un sector final revirado que pide carga,media
+Adelaide,Australia,high,9 a 14,Callejero de esquinas en ángulo recto,media
+Barcelona-Catalunya,España,high,9 a 14,Enlazadas rápidas del sector 1; referencia clásica de carga alta,alta
+Hungaroring,Hungría,high,9 a 14,"Mónaco sin muros, muy revirado",alta
+Laguna Seca,EE.UU.,high,9 a 14,"Técnico, el Corkscrew, lento-medio",alta
+Long Beach,EE.UU.,high,9 a 14,Callejero de curvas lentas y horquillas,alta
+Mónaco,Mónaco,high,9 a 14,"Todo curvas lentas, callejero estrecho",alta
+Mugello,Italia,high,9 a 14,Enlazadas rápidas con desnivel; mucha carga pese a la recta,media
+Okayama,Japón,high,9 a 14,"Corto y revirado, curvas lentas enlazadas",media
+Oulton Park,Reino Unido,high,9 a 14,"Estrecho y revirado, con fuerte desnivel",media
+Sachsenring,Alemania,high,9 a 14,"Muy revirado, curvas lentas enlazadas",alta
+Silverstone,Reino Unido,high,9 a 14,Maggotts-Becketts y Copse: enlazadas rápidas que piden mucha carga,alta
+Singapur Marina Bay,Singapur,high,9 a 14,Urbano lento,alta
+Suzuka,Japón,high,9 a 14,Las eses del sector 1 y la 130R piden carga alta,alta
+Zandvoort,Países Bajos,high,9 a 14,Revirado con peraltes,alta

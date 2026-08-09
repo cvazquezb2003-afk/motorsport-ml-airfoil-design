@@ -1,0 +1,30 @@
+# Configuracion de despliegue en Render (Infrastructure as Code).
+# Render lo lee de la raiz del repo: "New > Blueprint" y apuntar al repositorio.
+#
+# ⚠️ EL PLAN NO ES `free`, Y NO ES UN DESCUIDO.
+# Medido por etapas en el arranque: el proceso llega a ~640 MB de residente
+# (12 interprete + 60 numpy/pandas/scipy + 74 xgboost + 289 modelos y ensemble +
+# 205 el resto de la app). La capa gratuita de Render son 512 MB: el servicio
+# moriria por OOM al arrancar, o durante la primera peticion.
+#   free     512 MB -> NO CABE
+#   starter  512 MB -> NO CABE (mismo limite, solo quita el dormir)
+#   standard 2 GB   -> cabe con holgura
+# Si el coste importa, ver la nota sobre Fly.io en el informe: 1 GB sale mas
+# barato y tambien entra.
+services:
+  - type: web
+    name: inverted-wing-designer
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: standard          # NO bajar a free/starter: 512 MB no bastan
+    region: frankfurt       # el mas cercano a Europa
+    healthCheckPath: /
+    autoDeploy: true
+    envVars:
+      # PORT lo inyecta Render automaticamente; el Dockerfile ya lo respeta.
+      - key: XFOIL_CONCURRENCIA
+        value: "2"          # maximo de XFOIL simultaneos (ver rutas.py)
+      - key: XFOIL_TIMEOUT_S
+        value: "20"         # corta un XFOIL colgado (mediana medida: 0,48 s)
+      - key: PYTHONUNBUFFERED
+        value: "1"          # logs en vivo, sin buffer

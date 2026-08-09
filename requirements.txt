@@ -1,0 +1,33 @@
+# Dependencias del DASHBOARD desplegado (Linux). Derivadas del cierre de imports
+# REAL de dashboard_app.py (24 modulos propios -> 9 paquetes de terceros), no de
+# memoria. Las versiones son las que hay instaladas y probadas en desarrollo.
+#
+# NO estan aqui, a proposito:
+#   pywin32 / pywinauto  -> CATIA, solo Windows. El pipeline de generacion no se
+#                           despliega, asi que no hacen falta (y romperian en Linux).
+#
+# Se fijan las versiones: un despliegue que resuelve libre puede traerte una
+# incompatibilidad el dia que reconstruyas, sin que hayas tocado nada.
+flask==3.1.3
+numpy==2.4.3
+pandas==3.0.1
+scipy==1.18.0
+joblib==1.5.3
+xgboost==3.3.0
+scikit-learn==1.9.0
+plotly==6.9.0
+
+# matplotlib: NO se usa para dibujar nada en la web (toda la capa visual es Plotly),
+# pero HOY el arbol de imports lo arrastra: asc_to_dat.py hace
+# `import matplotlib.pyplot as plt` a nivel de MODULO, y el dashboard llega hasta
+# ahi por graficas_forma -> piloto_tereal -> asc_to_dat, para regenerar el .dat
+# TE-real del vecino.
+# Son ~50 MB de rueda mas fuentes, por un import que no se ejecuta nunca en el
+# dashboard. Se quita moviendo ese import DENTRO de las funciones que lo usan
+# (import perezoso, patron que el proyecto ya emplea en varios sitios). Mientras
+# tanto es obligatorio o la app no arranca.
+matplotlib==3.10.9
+
+# Servidor WSGI de produccion. El servidor de desarrollo de Flask no debe exponerse.
+# UNICA version no verificada en local (gunicorn no esta instalado aqui).
+gunicorn==23.0.0
