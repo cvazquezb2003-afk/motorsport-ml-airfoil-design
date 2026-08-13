@@ -2,6 +2,10 @@
 
 **Machine-learning inverse design of downforce aerofoils for motorsport — with the model's own uncertainty built into the optimisation.**
 
+**▶ Live demo: [inverted-wing-designer.fly.dev](https://inverted-wing-designer.fly.dev)**
+
+*Best viewed on desktop — the layout does not adapt to narrow screens. The first load can take a few seconds while the server wakes up.*
+
 Tell it the circuit, the chord and the speed. It proposes a wing section, tells you how well it should perform, and — the part that matters — tells you how much to trust that number.
 
 ---
