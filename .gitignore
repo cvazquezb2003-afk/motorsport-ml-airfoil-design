@@ -245,3 +245,9 @@ ARQUITECTURA_Y_PLAN.md
 #
 # contar_lineas.py NO se ignora a proposito: es la herramienta que hace
 # verificable la cifra de lineas que se cita, y por eso forma parte del repo.
+
+# Workflow de despliegue continuo que genera `fly launch` solo. Necesita el
+# secreto FLY_API_TOKEN configurado en GitHub; sin el, la accion FALLA en cada
+# push y deja una X roja permanente en la portada de un repo publico. El
+# despliegue se hace a mano con `fly deploy`, asi que no aporta nada.
+.github/workflows/fly-deploy.yml

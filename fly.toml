@@ -1,0 +1,25 @@
+# fly.toml app configuration file generated for inverted-wing-designer on 2026-08-13T11:16:56+02:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'inverted-wing-designer'
+primary_region = 'lhr'
+
+[build]
+[http_service]
+  internal_port = 5001
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ['app']
+
+[[vm]]
+  # 2 GB, no 1. Con 1 GB la vista /api/metodo mataba al worker por OOM: el
+  # arranque son ~640 MB (modelos + ensemble) y construir las cinco figuras del
+  # metodo de golpe llevo el RSS a 863 MB, medido en el log del kernel.
+  memory = '2gb'
+  cpu_kind = 'shared'
+  cpus = 1
+  memory_mb = 2048

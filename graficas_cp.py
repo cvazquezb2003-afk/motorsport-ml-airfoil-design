@@ -34,6 +34,18 @@ def _xfoil_cp(dat, Re, alpha, workdir):
         if os.path.exists(p): os.remove(p)
     seq = list(range(0, alpha - 1, -2))
     if alpha not in seq: seq.append(alpha)
+    # NO poner "PLOP"+"G" aqui para apagar los graficos. Es lo intuitivo en un
+    # servidor sin pantalla y esta MEDIDO que hace lo contrario de lo que parece:
+    #
+    #   sin display, sin PLOP -> "Cannot open display...aborting", sin cp.txt
+    #   sin display, con PLOP -> SIGFPE (rc=136) dentro de MRCHUE, sin cp.txt
+    #   con display virtual (xvfb), sin PLOP -> converge y escribe el Cp  <-- OK
+    #   con display virtual (xvfb), con PLOP -> SIGFPE otra vez
+    #
+    # El binario de Debian esta enlazado contra libX11 de forma no opcional y su
+    # volcado del Cp pasa por la libreria de dibujo: necesita el subsistema
+    # grafico INICIALIZADO, no apagado. Por eso el despliegue corre bajo
+    # `xvfb-run` (ver Dockerfile) y aqui NO se toca PLOP.
     cmds = ["LOAD geom.dat", "", "PANE", "OPER", f"VISC {int(round(Re))}", f"ITER {ITER}",
             "PACC", "polar.txt", ""] + [f"ALFA {a}" for a in seq] + \
            ["CPWR cp.txt", "PACC", "", "QUIT"]
@@ -51,13 +63,27 @@ def _xfoil_cp(dat, Re, alpha, workdir):
     cpp = os.path.join(workdir, "cp.txt")
     if not os.path.isfile(cpp):
         return None, None
+    # DOS FORMATOS DE cp.txt, segun la compilacion de XFOIL:
+    #   Windows (la de desarrollo) -> 3 columnas:  x  y  Cp
+    #   Debian  (la del contenedor)-> 2 columnas:  x  Cp     <- sin la y
+    # Leer solo el de 3 columnas costo un despliegue entero: en Debian el
+    # fichero se escribia BIEN (161 lineas, XFOIL convergido) y el parser lo
+    # descartaba entero, con lo que la app concluia "no convergio" sobre un
+    # calculo correcto. La cabecera "# x Cp" tiene 3 tokens pero no son numeros,
+    # asi que ni siquiera colaba por el except.
     rows = []
     for ln in open(cpp, encoding="utf-8", errors="ignore"):
         p = ln.split()
-        if len(p) >= 3:
-            try: rows.append((float(p[0]), float(p[1]), float(p[2])))
-            except ValueError: pass
+        try:
+            if len(p) >= 3:
+                rows.append((float(p[0]), float(p[1]), float(p[2])))
+            elif len(p) == 2:
+                rows.append((float(p[0]), np.nan, float(p[1])))
+        except ValueError:
+            pass
     arr = np.array(rows)
+    if arr.size and np.isnan(arr[:, 1]).any():
+        arr = _rellena_y(arr, workdir)
     # CL/CD de la polar
     clcd = None
     pol = os.path.join(workdir, "polar.txt")
@@ -70,6 +96,48 @@ def _xfoil_cp(dat, Re, alpha, workdir):
                         clcd = (float(q[1]), float(q[2]))
                 except ValueError: pass
     return arr, clcd
+
+
+def _rellena_y(arr, workdir):
+    """Repone la columna y del contorno cuando el cp.txt viene a 2 columnas.
+
+    La y NO es decorativa: la figura de Cp dibuja la silueta del perfil debajo
+    de las presiones, y un aerodinamicista lee una cosa contra la otra.
+
+    Se toma del geom.dat que ya esta en el workdir -- la MISMA geometria que
+    XFOIL acaba de resolver, asi que el dibujo sale identico al de Windows.
+
+    Se interpola por SUPERFICIE, no sobre el contorno entero: extrados e
+    intrados comparten los mismos valores de x, y una interpolacion global
+    mezclaria las dos caras. Cada mitad se corta por el minimo de x (el morro),
+    igual que hace _split_arc, y dentro de cada una la x SI es monotona.
+    """
+    g = os.path.join(workdir, "geom.dat")
+    if not os.path.isfile(g):
+        return arr                                   # sin fuente: se deja NaN
+    pts = []
+    for ln in open(g, encoding="utf-8", errors="ignore"):
+        q = ln.split()
+        if len(q) >= 2:
+            try:
+                pts.append((float(q[0]), float(q[1])))
+            except ValueError:
+                pass                                 # cabecera del .dat
+    if len(pts) < 8:
+        return arr
+    G = np.array(pts)
+
+    def interp(dst_x, src):
+        """y(x) dentro de UNA superficie. np.interp exige xp creciente."""
+        o = np.argsort(src[:, 0])
+        return np.interp(dst_x, src[o, 0], src[o, 1])
+
+    gi = int(np.argmin(G[:, 0]))                     # morro de la geometria
+    ai = int(np.argmin(arr[:, 0]))                   # morro del Cp
+    out = arr.copy()
+    out[:ai + 1, 1] = interp(arr[:ai + 1, 0], G[:gi + 1])      # 1a superficie
+    out[ai:, 1] = interp(arr[ai:, 0], G[gi:])                  # 2a superficie
+    return out
 
 
 def _split_arc(arr):
