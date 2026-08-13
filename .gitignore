@@ -213,6 +213,35 @@ cp_alpha_*.png
 perfil_*.png
 zoom_te.png
 
+# ...pero docs/ SI va al repo: ahi vive la captura del dashboard que muestra el
+# README. Sin esta excepcion la imagen no se sube y GitHub enseña un icono roto
+# en la portada, sin que nada avise. Va DESPUES de las reglas de *.png para
+# ganarles: en .gitignore manda la ULTIMA regla que coincide.
+!docs/
+!docs/*.png
+
 # SI entran los .dat de bateria_*_stars/: son las geometrias ESTRELLA propuestas
 # por la inversa en cada caso, y sin ellas los bateria_*_resultados.json no se
 # pueden reproducir. Pesan 0,5 MB entre los 92.
+
+
+# -----------------------------------------------------------------------------
+# 9. DOCUMENTOS INTERNOS SUPERADOS  (siguen EN DISCO, solo fuera del repo publico)
+# -----------------------------------------------------------------------------
+# AGENTS.md es una copia de CLAUDE.md del 27-jul: 740 lineas frente a 1.753, y no
+# contiene NADA de la densificacion (0 menciones a "densific", "2.8%" o "61
+# circuitos"). En un repo publico serian dos documentos de contexto que se
+# CONTRADICEN, y el viejo describe un estado del proyecto que ya no existe.
+AGENTS.md
+
+# ARQUITECTURA_Y_PLAN.md es el plan del 24-jul: preguntas abiertas que ya se
+# respondieron y un calendario que ya paso. Util como historia, ruido en publico.
+ARQUITECTURA_Y_PLAN.md
+
+# OJO: estas dos lineas NO bastan por si solas. Los dos ficheros YA estaban
+# commiteados, y .gitignore solo afecta a lo NO seguido. Hubo que sacarlos del
+# indice con `git rm --cached` (siguen en disco). Si alguna vez reaparecen en el
+# repo, el problema es que algo los volvio a anadir, no que falte esta regla.
+#
+# contar_lineas.py NO se ignora a proposito: es la herramienta que hace
+# verificable la cifra de lineas que se cita, y por eso forma parte del repo.
