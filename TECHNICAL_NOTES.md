@@ -550,7 +550,7 @@ congelados, así que no se rompen: simplemente son de otra época.
 | Script | Rol |
 |---|---|
 | `inversa_ld_v2.py` | Inversa **CLI**: zona fiable p5-p95 + avisos + penalización k=2. Ángulo **fijo −6°**, velocidad fija 180. **⚠️ NO es la que invoca el dashboard** |
-| `inversa_service.py` | **La inversa que USA el dashboard**: misma receta (k=2, bounds p5-p95, mismos modelos y ensemble) pero **parametrizada por RANGO de ángulo** y cuerda. Sobol 32.768, ~6-9 s |
+| `inversa_service.py` | **La inversa que USA el dashboard**: mismo objetivo, k=2, bounds p5-p95 y modelos que la batería, pero **otro buscador** (Sobol 32.768 + argmin, no DE) y **parametrizada por RANGO de ángulo** y cuerda. ~6-9 s. El hueco contra DE está medido: ver **"El buscador desplegado no es el validado"** |
 | `inversa_bateria.py` / `bateria_k2.py` | Generadores de la batería original (8 casos) |
 | `bateria_tereal.py` / `bateria_tereal_ext.py` | Batería TE-real: 20 + 20 = **40 casos** (k=0 y k=2, CATIA+XFOIL). Etapa B ahora **reanudable** |
 | `bateria_densif.py` | **Etapa A** de la batería densif (portable, ~3 h): 40 casos × k0/k2 → 80 propuestas + configs `dsf_*.json` |
@@ -609,6 +609,71 @@ congelados, así que no se rompen: simplemente son de otra época.
 > y dataset) y es el que sirve la aplicación. `flask_airfoil_api.py` llama a
 > `run_pipeline`, que construye geometría en CATIA: solo funciona en la máquina con
 > CATIA y **no** sirve la UI.
+
+---
+
+## 🎯 EL BUSCADOR DESPLEGADO NO ES EL VALIDADO (2026-08-14)
+
+**El hallazgo.** El README afirmaba que la inversa usa `differential_evolution`. Es falso:
+`inversa_service.optimizar` hace un barrido de Sobol de 32.768 candidatos y un `argmin`.
+DE solo vive en los scripts offline. La decisión es correcta —DE cuesta ~150 s por caso y
+no cabe en una petición HTTP— pero tiene una consecuencia que nadie había comprobado: **el
+2,8% se midió sobre geometrías que la web no produce.**
+
+Las notas técnicas siempre dijeron "Sobol 32.768". El README se desvió. Lo que faltaba no
+era documentación, era la comprobación.
+
+**Lo que sí coincide** (verificado, no asumido): bounds p5-p95 idénticos a 5 decimales en
+los 6 parámetros —los dos CSV dan los mismos cuantiles porque la densificación añadió
+condiciones, no perfiles—, k=2, objetivo `mu + k·σ` minimizado, filtro de cuerda ≥150, y
+los modelos. Los densif se promocionaron a los nombres de producción, y eso quedó probado
+de rebote: reconstruir `mean_ens`, `sigma` y `LD_pred` de la batería desde los JSON da
+`0.00e+00` de discrepancia, cosa imposible con otros modelos.
+
+**Cómo se aisló.** Hay **dos** divergencias, no una: el buscador, y que la batería
+optimizaba a ángulo fijo mientras la web promedia J sobre una banda. Llamar `optimizar()`
+con `a_from == a_to` degenera la banda a un ángulo y cancela la segunda, dejando el
+buscador como única variable. Sin eso, cualquier desacuerdo sería inatribuible.
+
+**El resultado** (`comprueba_buscador.py`, 40 casos, ~60 s):
+
+| | J_DE | Sobol | Sobol+L-BFGS | Sobol+Powell |
+|---|---|---|---|---|
+| iguala o mejora J_DE | — | **0/40** | **0/40** | **0/40** |
+| dif J mediana | — | +0,8460 (+1,27%) | +0,8460 | +1,1035 |
+| σ mediana | 0,3387 | 0,4894 (**+44%**) | 0,4894 | 0,4259 |
+| dist. params (media de 6) | — | 8,5% (máx 16,9%) | 8,5% | 11,4% |
+| peor parámetro | — | mediana 22,6%, **máx 59,1%** | ídem | máx 20,1% |
+
+Cuarenta de cuarenta, todo en la misma dirección. No es ruido.
+
+**No es afinado, es otra cuenca** (`pulido_local.py`). La hipótesis barata era que el
+Sobol cae cerca y no resuelve, en cuyo caso un pulido local lo recuperaría. Se probaron
+dos y fallaron los dos:
+
+- **L-BFGS-B no arranca.** `nfev = 7 = d+1` en los 40 casos, y J idéntica a la del Sobol
+  pelado en los 40. Calculó un gradiente por diferencias finitas, salió cero y declaró
+  convergencia. Era previsible: el objetivo son árboles, J es constante a trozos y el
+  gradiente es nulo salvo que el paso cruce un corte.
+- **Powell empeora.** Derivative-free, así que el gradiente no le afecta, y aun así sube
+  la mediana de J (+1,10 vs +0,85) y termina peor que su punto de partida en 5 de cada 6
+  casos comprobados. Verificado que no es artefacto: `r.fun` de scipy coincide con el
+  recálculo y los puntos están dentro de bounds. Sobre una superficie escalonada su
+  búsqueda lineal acepta pasos en las mesetas y nada rechaza la extrapolación final.
+
+Por eso se corrió Powell y no solo L-BFGS: si solo hubiera estado L-BFGS, no habría forma
+de distinguir "el pulido no sirve" de "el gradiente no existe". Que fallen dos métodos
+locales distintos desde el mismo arranque es lo que convierte la conclusión en evidencia.
+
+**Consecuencia.** El 2,8% se atribuye a las geometrías de DE y **no se reclama para lo que
+devuelve la web**. Las dos únicas vías de reconciliación son meter DE en la web (~150 s por
+caso, inviable) o rehacer la Etapa B sobre las geometrías del Sobol (CATIA + XFOIL). Se
+eligió declarar la limitación.
+
+**Hilo recurrente.** Otra comprobación que habría pasado sin probar nada: durante meses
+"misma receta" cubrió una diferencia de algoritmo. Las guardas de `comprueba_buscador.py`
+son `sys.exit`, no avisos, y la de la banda degenerada lleva un caso de control de banda
+real — precisamente para que la comprobación pueda fallar.
 
 ---
 

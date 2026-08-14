@@ -10,9 +10,14 @@ primary_region = 'lhr'
 [http_service]
   internal_port = 5001
   force_https = true
+  # min_machines_running = 1: la maquina NO se para al quedarse sin trafico.
+  # Con 0, la primera visita pagaba el arranque en frio -- arrancar la VM mas
+  # cargar ~640 MB de modelos, medido en ~40 s. Para un enlace que se comparte
+  # publicamente eso es tiempo suficiente para que alguien cierre la pestana.
+  # A cambio, la maquina factura de forma continua en vez de solo bajo uso.
   auto_stop_machines = 'stop'
   auto_start_machines = true
-  min_machines_running = 0
+  min_machines_running = 1
   processes = ['app']
 
 [[vm]]
