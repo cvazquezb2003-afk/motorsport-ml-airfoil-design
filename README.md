@@ -153,8 +153,8 @@ The winner's curse isn't a fixed property of the method — it is **the price of
 
 ## Reproducibility
 
-Every stochastic step is seeded, and the one artefact that cannot be committed is
-rebuilt deterministically:
+Every stochastic step is seeded, and the one artefact too large to commit is pinned by
+hash rather than rebuilt:
 
 - **Inverse design**: a fixed-seed Sobol sweep (32,768 points) scored against the ensemble.
   The same target returns the same geometry.
@@ -163,10 +163,29 @@ rebuilt deterministically:
 - **Uncertainty ensemble**: 10 members with fixed seeds (`1000+i`) and fixed
   hyperparameters; `xgboost` is pinned to the exact version the committed models were
   trained with.
-- **The ensemble (111 MB on disk, 106 MiB) is regenerated, not stored.** It exceeds GitHub's file limit, so
-  `build_ensemble.py` rebuilds it from the training dataset in ~1 minute. The rebuild was
-  verified against the production artefact: same file size, and **maximum σ difference of
-  0.000** across a sample of real design points.
+- **The ensemble (111 MB on disk, 106 MiB) is downloaded, not rebuilt.** It exceeds
+  GitHub's file limit, so it is published as a release asset and fetched by
+  `fetch_ensemble.py`, pinned to **SHA-256 `4d25eaf7…48fc7c`**. Local runs and the Docker
+  image therefore use the *same bytes* as the 40-case battery, not an equivalent rebuild.
+
+> **Why pinned rather than rebuilt, and the bug that forced it.** The image used to retrain
+> the ensemble at build time. That does not reproduce the artefact — it produces a different
+> one. Retraining the same code with the same seeds on Linux instead of Windows gave, on an
+> identical design point, σ **0.354 against 0.278 (+27 %)**, and since `J = mean + k·σ`, a
+> different σ moves the argmin: the deployed app was returning a **different geometry** from
+> the validated code for the same circuit. The committed models never had this problem —
+> their predictions are byte-identical across platforms. Only the retrained ensemble drifts,
+> because the trees do not come out the same. Determinism was real *within* one environment
+> (a rebuild here reproduces the file byte for byte, MD5 `444cf10b…`) and that was mistaken
+> for determinism in general. Pinning the hash is what makes the guarantee portable.
+
+`build_ensemble.py` remains as the record of how the artefact was built and as the recovery
+path if the release is ever lost.
+
+> ⚠️ It **does nothing if `ensemble_ld_sigma.joblib` already exists** — it prints a notice
+> and exits **0**. That is deliberate, but it means timing or verifying it against an
+> existing file finishes in seconds and reports success without having rebuilt anything.
+> Delete the file first. (A real rebuild is **62.5 s**; the misleading run was 2.9 s.)
 
 ## A note on verification
 
@@ -199,11 +218,16 @@ reproduction checks) exist because of these, not before them.
 
 ```bash
 pip install -r requirements.txt
-python build_ensemble.py     # regenerates the uncertainty ensemble (~1 min)
+python fetch_ensemble.py     # downloads the validated ensemble, SHA-256 checked
 python dashboard_app.py      # http://127.0.0.1:5001
 ```
 
-The uncertainty ensemble is a 111 MB artefact (106 MiB), too large for GitHub, so it is rebuilt from the training dataset instead of being committed. The rebuild is deterministic and has been verified to reproduce the production ensemble exactly (maximum σ difference: 0.000).
+The uncertainty ensemble is a 111 MB artefact (106 MiB), too large for GitHub, so it is
+published as a release asset instead of committed. `fetch_ensemble.py` downloads it and
+verifies the SHA-256 before writing it; on any mismatch it exits non-zero rather than
+carrying on. Use it in preference to `build_ensemble.py`: it gives you the exact bytes the
+published results were measured with, whereas a local rebuild gives an equivalent ensemble
+that is only byte-identical on the environment it was originally built on.
 
 **Without XFOIL**, everything driven by the surrogate still works — design, KPIs, loads, silhouettes, comparison and all three export formats. Only the pressure-distribution plots degrade, to a notice rather than an error.
 

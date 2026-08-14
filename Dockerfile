@@ -42,14 +42,35 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+# EL ENSEMBLE DE SIGMA: se DESCARGA el artefacto validado, NO se reentrena.
+#
+# Antes esto era `RUN python build_ensemble.py`, y estaba MAL. Reentrenar no
+# reproduce el ensemble: produce otro. Medido el 2026-08-14 sobre el mismo punto
+# de diseno, contenedor contra local:
+#     mu     -57.2348  vs  -57.4397
+#     sigma    0.35393 vs    0.27786     +27,4 %
+# Como J = mu + k*sigma, eso mueve el argmin: la web devolvia OTRA geometria que
+# el codigo validado para el mismo circuito (Suzuka: TE 1,450 mm en la web contra
+# 2,777 mm en local). Los modelos commiteados no tienen ese problema — sus
+# predicciones son identicas bit a bit entre Windows y Linux; el que se desvia es
+# el ensemble reentrenado, porque los arboles no salen iguales en otra plataforma.
+#
+# El sha256 es lo que hace que esto valga: no comprueba que HAYA un ensemble,
+# comprueba que es EL que se uso para medir la bateria de 40 casos.
+#
+# Va ANTES de COPY . . para que los 106 MiB queden en una capa cacheada y un
+# cambio de codigo no vuelva a descargarlos. `.dockerignore` excluye
+# ensemble_ld_sigma.joblib, asi que el COPY posterior no puede pisar el
+# descargado con una copia local.
+#
+# SIN FALLBACK, A PROPOSITO: si la descarga o el hash fallan, fetch_ensemble.py
+# sale con codigo != 0 y el build MUERE aqui. Nada de `|| python
+# build_ensemble.py`: un fallback silencioso reintroduce el bug sin una linea en
+# el log, que es justo como se colo la primera vez.
+COPY fetch_ensemble.py .
+RUN python fetch_ensemble.py
 
-# El ensemble de sigma (106 MB) NO viaja en el repo: supera el limite de GitHub.
-# Se regenera aqui desde airfoil_dataset_densif_merged.csv (~1 min).
-# OJO: build_ensemble.py, no winner_curse.py — ese lee otro dataset y produciria
-# un ensemble PRE-DENSIF con el nombre de produccion, sin avisar. Ver el
-# comentario largo en build_ensemble.py.
-RUN python build_ensemble.py
+COPY . .
 
 # Comprobacion en tiempo de BUILD: si XFOIL no esta donde se espera o la app no
 # importa, el build FALLA aqui. Es preferible a descubrirlo con el servicio

@@ -719,6 +719,67 @@ nadie lee.
 
 ---
 
+## 🧬 EL ENSEMBLE DESPLEGADO NO ERA EL VALIDADO (2026-08-14)
+
+Salió tirando del hilo anterior. Al querer endurecer la afirmación de reproducibilidad del
+README —de "σ difference 0.000" a "md5 idéntico"— se comprobó el md5 **dentro del
+contenedor**. No coincidía.
+
+**La causa.** El `Dockerfile` hacía `RUN python build_ensemble.py`: el ensemble se
+**reentrenaba** en la imagen. Y reentrenar no reproduce el artefacto, produce otro. Mismo
+código, mismas semillas `1000+i`, mismo `xgboost 3.3.0` y `numpy 2.4.3`; distinto sistema
+operativo, distintos árboles.
+
+| | local (Win/py3.14) | contenedor (Linux/py3.12) |
+|---|---|---|
+| modelo LD **commiteado**, md5 de predicciones | `faf52283e148…` | `faf52283e148…` **idéntico** |
+| ensemble **reentrenado**, bytes | 110.989.020 | **111.395.464** |
+| ensemble **reentrenado**, md5 de predicciones | `9673efdd…` | `f8943e7a…` **distinto** |
+
+**El impacto, sobre el mismo punto de diseño y los mismos 11 features:**
+
+| | local | contenedor |
+|---|---|---|
+| `mu` | −57,4397 | −57,2348 |
+| **σ** | **0,27786** | **0,35393** (**+27,4 %**) |
+| J = mu+2σ | −56,8840 | −56,5270 |
+
+Y en un diseño completo de Suzuka, **dos geometrías distintas**: L/D 52,21 y σ 0,339 en
+local frente a 52,70 y σ 0,586 en la web, con `trailing_edge_thickness_mm` 2,777 contra
+1,450. Como `J = mu + k·σ`, un σ distinto mueve el `argmin`.
+
+Lo grave no era el número: **σ es la característica que vende el proyecto** ("uncertainty
+reported, not hidden"), y la web mostraba una un 27 % por encima de la validada. Sumado al
+hallazgo del buscador, había **dos** capas entre lo validado y lo desplegado: otro
+optimizador y otro ensemble.
+
+**La solución.** El ensemble se publica como *release asset* (`ensemble-densif-v1`) y
+`fetch_ensemble.py` lo descarga anclado por **sha256
+`4d25eaf77ec8b9bdd8b2ff060f0dc1dff4d41e6ec68e5c24f5714f353d48fc7c`**. El hash es lo que
+hace que valga: no comprueba que *haya* un ensemble, comprueba que es **el** que midió la
+batería. Sin `|| python build_ensemble.py` en ninguna parte — un fallback silencioso
+reintroduce el bug sin una línea en el log.
+
+Los cuatro guardianes se probaron **negativamente** antes de desplegar, no solo el camino
+feliz: fichero correcto ya presente → sale 0; fichero distinto sin `--force` → sale 1;
+sha256 incorrecto → aborta; tamaño incorrecto → aborta. En los dos últimos **no queda
+fichero a medias**, porque se descarga a `.part` y solo se renombra tras verificar: un
+ensemble truncado con el nombre bueno sería aceptado en silencio por el atajo de
+`build_ensemble.py`.
+
+**El atajo, que además explica por qué esto no se vio antes.** `build_ensemble.py` empieza
+con `if os.path.exists(SALIDA): return 0`. Devuelve **cero**, así que cronometrarlo dio
+**2,9 s** y parecía correcto; la medición real, con el fichero borrado, son **62,5 s**. En
+local el ensemble siempre existía, así que nunca se regeneraba y nunca se veía la
+divergencia. Misma familia que `os.path.isfile` para XFOIL, el `.err` limpio con la pieza
+vacía y el A/B con la misma geometría: **la comprobación pasó sin comprobar nada.**
+
+**Qué queda de `build_ensemble.py`:** el registro de cómo se construyó el artefacto y la vía
+de recuperación si se pierde la release. Reproduce el fichero byte a byte **en el mismo
+entorno** (md5 `444cf10b…`, verificado), pero solo ahí. La fuente de verdad es la release.
+
+---
+
 ## 🚫 Limitaciones conocidas: decisión CONSCIENTE de no corregir
 
 > Las cuatro están medidas y documentadas. **No "arreglarlas" sin petición explícita.**
