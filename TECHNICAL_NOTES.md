@@ -677,6 +677,48 @@ real — precisamente para que la comprobación pueda fallar.
 
 ---
 
+## 🏷️ EL METADATO QUE DECÍA "NO ES PRODUCCIÓN" (2026-08-14)
+
+Los tres modelos de producción llevaban dentro, en `meta["nota"]`:
+
+> `Entrenado sobre el dataset densificado. NO es produccion.`
+
+Falso desde la promoción del 2026-08-06: **son** los que sirve el dashboard. Ningún código
+lee ese campo, así que no afectaba a ningún cálculo — pero cualquiera que inspeccionase los
+`.joblib` para auditar el proyecto leía que no eran producción. El mismo patrón que el del
+buscador: documentación que se quedó atrás de un cambio.
+
+**Por qué no era trivial.** El `.joblib` es un único `dict {"model": XGBRegressor, "meta":
+{...}}`. No hay forma de editar `meta` sin volver a serializar también el booster, y los tres
+ficheros están versionados. Cambiar una cadena reescribe 15 MB de binario que sostiene las
+cifras publicadas.
+
+**La verificación, por si hay que volver a tocarlos.** Reserializar un `XGBRegressor` con
+joblib **no altera las predicciones**. Medido, no supuesto:
+
+- Lote de **20.000 filas reales** del dataset de entrenamiento (con `add_derived`, no ruido).
+- Predicción antes y después en los tres modelos: **diferencia máxima exactamente `0`**,
+  **0 de 20.000** valores distintos, y `np.array_equal` → `True`. Igualdad exacta, no
+  `allclose`. `dtype` (float32) y `shape` sin cambios.
+- `meta` intacto salvo `nota`: ninguna clave perdida, añadida ni alterada; `cv_groupkfold5`,
+  `n_perfiles` (944), `n_filas_ok` (63.496) y las 11 `features` sobreviven.
+- Los ficheros crecen **118 bytes** cada uno: exactamente la diferencia de longitud del texto.
+- **Extremo a extremo:** `optimizar()` en 6 casos contra los valores registrados ANTES de
+  tocar nada → idénticos hasta el último decimal (`-57.8295783997` vs `-57.8295783997`, …).
+  Ésta es la que cuenta: prueba el modelo reescrito por el camino real de la web, no aislado.
+
+El script llevaba el rollback dentro (`git checkout --` sobre los tres y `sys.exit(1)` ante
+cualquier diferencia). No llegó a dispararse. Antes de empezar había cuatro garantías de
+restauración: árbol limpio vs HEAD, `git hash-object` == blob de HEAD, HEAD publicado en
+`origin/main`, y copia física de los tres.
+
+**Nota de despliegue.** La imagen de Docker lleva los modelos horneados, así que la web sigue
+sirviendo los `.joblib` anteriores hasta el próximo `fly deploy`. No hace falta redesplegar
+por esto: las predicciones son idénticas bit a bit y lo único que cambia es una cadena que
+nadie lee.
+
+---
+
 ## 🚫 Limitaciones conocidas: decisión CONSCIENTE de no corregir
 
 > Las cuatro están medidas y documentadas. **No "arreglarlas" sin petición explícita.**

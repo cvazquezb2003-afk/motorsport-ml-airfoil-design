@@ -16,7 +16,7 @@ Designing a racing wing section is slow. Each candidate geometry has to be built
 
 This project replaces the inner loop. A dataset of **944 aerofoils, evaluated in XFOIL across 6 speeds and 1° angle steps (63,496 converged conditions)**, trains surrogate models that predict lift, drag and efficiency in milliseconds instead of minutes. An optimiser then searches the design space directly for the shape that best fits your target.
 
-The interesting problem is what happens next. **Optimising against a model with error doesn't find the best shape — it finds the model's biggest mistake.** The optimiser is drawn to the corners of the design space where the surrogate is most over-optimistic, because that is where the predicted numbers look best. Measured on this project: geometries proposed without any correction underperformed their own prediction in **36 of 38 verified cases** (p < 10⁻⁷). Not noise — a systematic bias.
+The interesting problem is what happens next. **Optimising against a model with error doesn't find the best shape — it finds the model's biggest mistake.** The optimiser is drawn to the corners of the design space where the surrogate is most over-optimistic, because that is where the predicted numbers look best. Measured on this project, in the first battery: geometries proposed without any correction underperformed their own prediction in **36 of 38 verified cases** (p < 10⁻⁷). Not noise — a systematic bias. It survives densification too, smaller but still there — see *Validation*.
 
 So the optimiser here doesn't just chase the best prediction. It penalises the model's own uncertainty, and it refuses to be confident where it has no evidence. That correction, and the honest reporting of what the model does and doesn't know, is the point of the project.
 
@@ -35,7 +35,7 @@ Built end to end over several months: the CATIA airfoil-generation script, the p
 - **Inverse design from a target.** Pick a circuit (61 of them), a downforce level, or an exact angle band. Set chord (150–500 mm) and speed (95–330 km/h). Get a geometry.
 - **Uncertainty reported, not hidden.** Every proposal carries σ from a bootstrap ensemble, its position against the measured catalogue, and explicit warnings when you leave the well-sampled region.
 - **Recommended angle as a band, not a point.** If the model can't distinguish 6° from 7°, it says "6–7°" instead of inventing a precision it doesn't have.
-- **Full aerodynamic report** — polars at multiple speeds, pressure distribution (Cp) from XFOIL on your exact geometry, and sectional loads per unit span.
+- **Full aerodynamic report** — polars at multiple speeds, pressure distribution (Cp) computed in XFOIL on the proposed geometry, and sectional loads per unit span. When XFOIL fails to converge on that exact shape, the app falls back to the closest real profile in the measured catalogue and labels the plot as such, rather than presenting a substitute as if it were your design.
 
 ![Predicted polars and pressure distribution](docs/polars_cp.png)
 *Predicted CL, CD and L/D polars across four speeds — amber is your design speed — next to the XFOIL pressure distribution computed on the proposed geometry.*
@@ -57,7 +57,7 @@ CATIA ──► point cloud ──► .dat ──► XFOIL ──► dataset ─
 
 **2. Surrogate models.** Three XGBoost regressors predict CL, CD and L/D from **11 features**: the 7 shape parameters, angle of attack, Reynolds number, and two physically-motivated derived terms (`alpha/√Re` for the viscous regime, and trailing-edge thickness relative to chord).
 
-Cross-validation uses **GroupKFold split by profile**, not by row. This matters: the 21+ rows belonging to one aerofoil are not independent samples, and a random split would leak the same geometry into both folds and report a score that doesn't exist.
+Cross-validation uses **GroupKFold split by profile**, not by row. This matters: one aerofoil contributes **23 to 79 rows** (median 70) — the same shape at different angles and speeds — and those are not independent samples. A random split would leak the same geometry into both folds and report a score that doesn't exist.
 
 | Target | MAE | R² |
 |---|---|---|
@@ -65,9 +65,10 @@ Cross-validation uses **GroupKFold split by profile**, not by row. This matters:
 | CL | 0.0208 | 0.987 |
 | CD | 0.0016 | 0.903 |
 
-**3. Inverse design.** Given a target, the app sweeps a Sobol sequence of 32,768 candidates
-over the 7-parameter space — bounded to the p5–p95 region actually covered by the data — and
-takes the best. The objective is not the raw prediction:
+**3. Inverse design.** The geometric family has 7 parameters, but you fix the chord, so the
+search runs over the remaining **6**. Given a target, the app sweeps a Sobol sequence of
+32,768 candidates across those 6 — bounded to the p5–p95 region actually covered by the
+data — and takes the best. The objective is not the raw prediction:
 
 ```
 J(x) = mean_ensemble(x) + k · σ(x)        minimised, k = 2
@@ -100,7 +101,10 @@ its own dataset. It cannot tell you whether the *optimiser* is exploiting the su
 errors — for that you have to take what the optimiser proposes, build it, and measure it.
 That is what these numbers are.
 
-| | mean error vs XFOIL |
+Both batteries below run those same 40 cases; the table reports the **denser** one, which
+is the dataset the shipped models are trained on.
+
+| | mean error vs XFOIL (denser battery) |
 |---|---|
 | `k=0` (chase the best prediction) | **6.9 %** |
 | `k=2` (penalise uncertainty) | **2.8 %** — median 2.4 %, worst case 12.2 % |
@@ -139,9 +143,9 @@ That is what these numbers are.
 
 Penalising uncertainty costs nothing in real performance. In the original battery, the measured L/D of the penalised proposal beat the unpenalised one in every case: `k=0` was chasing mirages.
 
-**And a result worth reporting because it contradicted the expectation.** Densifying the dataset (from 3 speeds to 6, and from 2° to 1° angle steps) was expected to weaken the penalty and make `k=2` worse, since σ dropped ~40%. It didn't. Instead, **the `k=0` error collapsed from 21.5 % to 6.9 %**.
+**And a result worth reporting because it contradicted the expectation.** The 40 cases were run twice: once against the original dataset (the *first battery*, July) and again after densifying it (from 3 speeds to 6, and from 2° to 1° angle steps). Densification was expected to weaken the penalty and make `k=2` worse, since σ dropped ~40%. It didn't. Instead, **the `k=0` error collapsed from 21.5 % in the first battery to 6.9 % in the denser one** — the figure in the table above.
 
-The winner's curse isn't a fixed property of the method — it is **the price of low-evidence corners**. Optimising against an imperfect model selects its largest positive error; densify where the model had little evidence and those corners stop existing, so the curse shrinks on its own. The bias is still measurable (33 of 37 cases still underperform their `k=0` promise), just three times smaller.
+The winner's curse isn't a fixed property of the method — it is **the price of low-evidence corners**. Optimising against an imperfect model selects its largest positive error; densify where the model had little evidence and those corners stop existing, so the curse shrinks on its own. The bias is still measurable — **33 of 37** cases still underperform their `k=0` promise in the denser battery, against 36 of 38 in the first — just three times smaller in magnitude.
 
 **One finding that is less flattering, kept anyway.** With the denser data, σ no longer correlates significantly with the observed error (Spearman ρ = 0.14, p = 0.42, versus ρ = 0.39, p = 0.017 before). σ has not broken — its range halved and the large errors it used to rank have disappeared — but it is now a **guardrail** (it refuses to be confident without data) rather than a fine-grained predictor of how wrong a proposal will be. The dashboard says so.
 
@@ -154,12 +158,12 @@ rebuilt deterministically:
 
 - **Inverse design**: a fixed-seed Sobol sweep (32,768 points) scored against the ensemble.
   The same target returns the same geometry.
-- **Cross-validation**: `GroupKFold` split **by profile**, so the 21+ conditions of one
+- **Cross-validation**: `GroupKFold` split **by profile**, so the 23–79 conditions of one
   aerofoil never straddle a fold.
 - **Uncertainty ensemble**: 10 members with fixed seeds (`1000+i`) and fixed
   hyperparameters; `xgboost` is pinned to the exact version the committed models were
   trained with.
-- **The 106 MB ensemble is regenerated, not stored.** It exceeds GitHub's file limit, so
+- **The ensemble (111 MB on disk, 106 MiB) is regenerated, not stored.** It exceeds GitHub's file limit, so
   `build_ensemble.py` rebuilds it from the training dataset in ~1 minute. The rebuild was
   verified against the production artefact: same file size, and **maximum σ difference of
   0.000** across a sample of real design points.
@@ -199,7 +203,7 @@ python build_ensemble.py     # regenerates the uncertainty ensemble (~1 min)
 python dashboard_app.py      # http://127.0.0.1:5001
 ```
 
-The uncertainty ensemble is a 106 MB artefact, too large for GitHub, so it is rebuilt from the training dataset instead of being committed. The rebuild is deterministic and has been verified to reproduce the production ensemble exactly (maximum σ difference: 0.000).
+The uncertainty ensemble is a 111 MB artefact (106 MiB), too large for GitHub, so it is rebuilt from the training dataset instead of being committed. The rebuild is deterministic and has been verified to reproduce the production ensemble exactly (maximum σ difference: 0.000).
 
 **Without XFOIL**, everything driven by the surrogate still works — design, KPIs, loads, silhouettes, comparison and all three export formats. Only the pressure-distribution plots degrade, to a notice rather than an error.
 
