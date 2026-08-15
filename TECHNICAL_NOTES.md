@@ -924,6 +924,105 @@ absorbidos.
 
 ---
 
+## 🌐 LA BATERÍA WEB — lo que la aplicación entrega, medido (2026-08-15)
+
+Cierra la última divergencia declarada. Las baterías anteriores validan el buscador con
+**ángulo fijado**; la web además **promedia J sobre una banda** y **redondea el TE a
+0,05 mm** al entregar. Las dos estaban en el README como no medidas.
+
+**Cómo.** `bateria_web.py` reproduce la secuencia del endpoint en su orden —
+`optimizar(cuerda, -hi, -lo, v)` → `redondea_te` → `metricas_banda`— y
+`bateria_web_etapaB.py` construye y mide. Recalcular con `metricas_banda` sobre la
+geometría **ya redondeada** no es un detalle: es [dashboard_app.py:1761](dashboard_app.py:1761).
+Usar el L/D que devuelve `optimizar()` sería comparar contra un número que la web nunca
+enseña.
+
+**La banda de cada caso.** Solo hay tres en el sistema (`RANGO`: low 0-5, medium 5-9, high
+9-14) y los 61 circuitos se reparten entre ellas, así que circuito y nivel dan la misma
+banda. A cada caso se le asigna la que **contiene** su |α|; los ángulos presentes son
+2, 4, 6, 8, 10 y 12 y ninguno cae en 5 ni en 9, los únicos valores frontera.
+
+**Ojo:** el modo "ángulo exacto" de la web **no** sirve para esto — en ese modo el endpoint
+optimiza a ángulo único y la banda implícita solo pinta la franja. El promediado ocurre en
+modo circuito y modo nivel.
+
+**Guarda previa, en las TRES bandas.** La réplica se comparó campo a campo contra la app en
+vivo (AVUS/low, Assen/medium, Adelaide/high): 7 `shape_params` + 9 campos idénticos en las
+tres. Hoy ya se había verificado con Suzuka, pero Suzuka es `high` y los 40 casos usan las
+tres bandas.
+
+### El artefacto, y por qué se mide dos veces
+
+La prueba corta dio en el caso 1 un |L/D| de **90,39** a −6° dentro de una curva suave
+(−5: 59,33 · −7: 60,85 · −8: 60,11). Con marcha de paso 1 y con marcha de paso 2 da
+**60,29**. Es la rama espuria del caso 10 otra vez. Es **determinista**: repetir la medida
+no la detecta, solo cambiar el camino la detecta.
+
+Con 211 puntos no había forma de saber cuáles estaban contaminados sin medirlos de las dos
+formas. Coste: una corrida de XFOIL más por caso —la marcha devuelve toda la banda de
+golpe—, unos 4 minutos y cero CATIA.
+
+| | |
+|---|---|
+| puntos comparables | **195** (16 no convergen en alguno de los dos métodos) |
+| difieren (>0,5) | **1** — caso 1, −6°, 90,39 vs 60,29 |
+| patrón | **ninguno detectable**: ángulo −6 1/29 · cuerda 300 1/15 · vel 180 1/77 · banda medium 1/145 |
+
+Sumando las otras baterías: **2 puntos contaminados en 271**. Raro y brutal, sin
+estructura que permita saber dónde mirar. La única defensa es medir de las dos formas.
+
+### Las cifras
+
+| | media | mediana | máx |
+|---|---|---|---|
+| **titular, marcha paso 1** (n=33) | **1,78 %** | 1,72 % | **4,05 %** |
+| titular, ángulo único (n=33) | 2,12 % | 1,72 % | 11,55 % |
+| accionable en α_rec, marcha (n=40) | 2,45 % | 1,87 % | 9,36 % |
+| accionable en α_rec, único (n=40) | 3,25 % | 1,87 % | 35,38 % |
+
+**La mediana es idéntica en los dos métodos.** Toda la diferencia está en la cola, en un
+punto.
+
+**Se publica el 1,78 %**, y el 2,12 % se declara al lado. Tres razones para elegir la
+marcha: es **el régimen con el que se generó el dataset** (`densificar.py` marcha de 1 en 1,
+cada ángulo partiendo del anterior convergido), así que medir con marcha **alinea la medida
+con el entrenamiento** en vez de corregir un dato incómodo; el 90,39 es **físicamente
+imposible** por el mismo criterio que tumbó el caso 10; y la diferencia está toda en la
+cola, no en el centro. Publicar las dos es lo que hace defendible la elección: con una sola
+parece que elegiste, con las dos se ve que mediste.
+
+### Convergencia
+
+**33 de 40 bandas completas en cada método** — pero no las mismas 33: **10 casos distintos**
+van cortos en al menos un método y **30 están completos en ambos**. Los incompletos quedan
+**fuera de la media de banda**, no promediados sobre lo que convergió: una media sobre 4 de
+5 ángulos no es el número que la app muestra.
+
+| caso | condición | sin converger (único / marcha) |
+|---|---|---|
+| 3 | c300 v290 medium | −9 / −9 |
+| 7 | c180 v180 medium | — / −9 |
+| 9 | c250 v180 medium | −9, −7 / — |
+| 12 | c350 v180 medium | — / −9 |
+| 13 | c320 v290 high | −11 / — |
+| 19 | c190 v180 low | — / −1 |
+| 21 | c160 v110 low | −5 / −1 |
+| 28 | c275 v110 low | −5 / — |
+| 31 | c330 v180 high | −10 / −14,−13,−12,−11,−10 |
+| 40 | c495 v290 medium | −8 / −8 |
+
+El **caso 31** es el peor: con marcha fallan 5 de sus 6 ángulos de banda alta. Es el 72 % de
+convergencia de esa banda apareciendo exactamente donde los datos decían.
+
+### Nota de operación
+
+La primera tirada murió en el caso 16 con **25 fallos consecutivos** de
+`export_cloud_ascii.py`: la sesión de CATIA se cayó y no se recuperó. Se paró, se reinició
+CATIA y la reanudación retomó en el 16 sin perder nada. Segundo intento: **40 de 40, 0
+fallos**.
+
+---
+
 ## 🧬 EL ENSEMBLE DESPLEGADO NO ERA EL VALIDADO (2026-08-14)
 
 Salió tirando del hilo anterior. Al querer endurecer la afirmación de reproducibilidad del
@@ -998,8 +1097,8 @@ conviene decir hasta dónde llega la comprobación. Se numeran para poder citarl
 | 3 | **M = 10 miembros bastan para estimar σ** | ❌ nunca justificado. No hay curva de convergencia de σ contra M |
 | 4 | **k = 2 es el valor correcto** | ❌ elegido a priori. Nunca se barrió k para ver si 1,5 o 3 dan mejor error medido. Los datos para hacerlo ya existen |
 | 5 | **La caja p5-p95 en 6D representa el espacio real** | ❌ los 944 perfiles pueden ocupar una variedad mucho más delgada dentro de la caja que Sobol muestrea entera. `nn_dist` lo mitiga como aviso, pero no está medido |
-| 6 | **El redondeo del TE a 0,05 mm no cambia el resultado** | ❌ declarado en el README, sin medir (±0,025 mm) |
-| 7 | **Promediar J sobre la banda da diseños comparables a los de ángulo fijo** | ❌ toda la validación es de ángulo fijo; la web promedia. Declarado, sin medir |
+| 6 | **El redondeo del TE a 0,05 mm no cambia el resultado** | ✅ **medido**: incluido en la batería web, que da 1,78 % con banda y redondeo frente al 2,09 % de ángulo fijo sin redondear |
+| 7 | **Promediar J sobre la banda da diseños comparables a los de ángulo fijo** | ✅ **medido**: ver *"La batería web"*. Los dos efectos van juntos en esa tirada, así que se validan como conjunto, no por separado |
 | 8 | **ρ y μ del aire son constantes** (nivel del mar, 15 °C) | ❌ nunca se varían y no está declarado en el README |
 | 9 | **`.dat`, `.csv` y `.step` son la misma geometría** | ❌ hay validadores estructurales del STEP, pero no una comprobación numérica punto a punto de que los tres coinciden |
 

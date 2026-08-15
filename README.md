@@ -160,15 +160,43 @@ is the dataset the shipped models are trained on.
 > their prediction (binomial p = 0.0017 — significantly *fewer* than half, i.e. `k=2`
 > overcorrects, by design).
 
-**What that battery does not cover.** Two differences from the live app were left out on
-purpose, and both are declared rather than absorbed. The battery **pins the angle**
-(`a_from == a_to`) so the search algorithm is the only variable, whereas the app averages
-`J` over a band of angles. And the app **rounds the trailing edge to the nearest 0.05 mm**
-as a manufacturability step at delivery, which these geometries do not carry — because the
-DE geometries did not either, and applying it to one side only would have put a second
-difference into a comparison built to isolate one. Both perturbations are small (the
-rounding moves the TE by at most ±0.025 mm), but neither is zero and **neither has been
-measured**.
+**What the app itself delivers, measured.** That battery pins the angle so the search is
+the only variable, while the app averages `J` over a band and rounds the trailing edge to
+0.05 mm at delivery. Those two gaps are now closed. The same 40 conditions were run once
+more, exactly as the app serves them, and all 40 proposals were built in CATIA and solved
+in XFOIL.
+
+| | mean | median | worst |
+|---|---|---|---|
+| Sobol, angle pinned, TE unrounded (n=38) | 2.09 % | 1.82 % | 5.53 % |
+| **The app as served: band + rounded TE (n=33)** | **1.78 %** | 1.72 % | 4.05 % |
+
+At the recommended angle — the single number a user would actually fly — the error is
+**2.45 %** (median 1.87 %, worst 9.36 %, n=40).
+
+> **Two numbers, because XFOIL gives two.** Every angle was measured twice: with a single
+> `ALFA` command, and marching from 0° in 1° steps. They agree on **194 of 195** comparable
+> points. On the one that does not — case 1 at −6° — the single-angle run reports
+> \|L/D\| = 90.39 against 60.29 for the march, sitting inside an otherwise smooth curve
+> (−5: 59.33, −7: 60.85, −8: 60.11). It is the spurious boundary-layer branch already
+> documented in this project: deterministic, so repeating the measurement never reveals it —
+> only changing the path does.
+>
+> Measured with single angles the headline is **2.12 %** and the worst case 11.55 % instead
+> of 4.05 %. **The median is identical either way (1.72 %): the entire difference lives in
+> the tail, in one point.** The march figure is the one reported, because it is the regime
+> the training data was generated in — `densificar.py` marches 0 → −14 in 1° steps, each
+> angle starting from the previous converged solution. Comparing a prediction trained on
+> marched data against a value obtained by jumping straight to the angle compares two
+> different things. Both numbers are given so that the choice is visible rather than made
+> quietly.
+
+**Seven bands out of 40 are short an angle in each method** (ten distinct cases are short in
+at least one; thirty are complete in both). Those cases are excluded from the band average
+rather than averaged over whatever converged — a mean over four of five angles is not the
+number the app displays. Case 31 is the worst: marching, five of its six high-band angles
+fail to converge, which is the 72 % convergence rate of that band showing up exactly where
+the data said it would.
 
 The `k=0` arm was re-run too — mean 3.14 %, median 1.45 %, worst **31.08 %**, with σ at the
 optimum 2.5× higher than `k=2` (1.350 vs 0.540), which is the winner's curse signature:
