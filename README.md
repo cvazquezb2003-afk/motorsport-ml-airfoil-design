@@ -297,6 +297,17 @@ docker run -p 7860:7860 -e PORT=7860 wing-designer
 Some limits worth stating plainly:
 
 - Predictions are **XFOIL-calibrated, not wind-tunnel-calibrated**. XFOIL is a viscous panel method with known limits near stall and at low Reynolds numbers.
+- **Everything the model knows comes from a single parametric family.** All 944 aerofoils
+  are generated from the same 7-parameter CATIA template, so the surrogates have learned
+  *that family* — not aerofoils in general. Nothing here has been benchmarked against a
+  published section: no NACA profile, no reference geometry with independent data. So the
+  tool can tell you where the good designs sit **inside** the family it has mapped, and how
+  confident it is about each one, but it cannot tell you how that family compares with a
+  known aerofoil, and it has nothing to say about a shape drawn from outside it — that is
+  out of scope, not extrapolation. The p5–p95 bounds narrow the region further still. This
+  is a scoping decision rather than an oversight: one parametric template is what makes a
+  CATIA → XFOIL loop automatable across 944 geometries. It is also a real ceiling on what
+  the results can claim.
 - **The training data is survivor-selected, and not uniformly.** XFOIL fails to converge on about **15 % of the attempted conditions**, and those failures are not random: they rise from ~3 % at shallow angles to **35 % at 10°**, and concentrate on **smaller chords**, i.e. lower Reynolds. In the high-downforce band (\|α\| 9–14°) only **72 % of conditions converge**, and the profiles that fail there have on average a **23 % smaller chord** and a **11 % thinner leading edge** than those that succeed. So in that band the model learns from the geometries XFOIL could solve, and **neither the surrogate nor σ has any information about the region it could not** — σ cannot flag a gap whose data never existed. This is the same mechanism that led us to exclude chords below 150 mm outright, and it is the most significant limitation of the work.
 - Analysis is **2D**. Span, endplates, ground effect and three-dimensional flow are outside the model. Sectional loads are per unit span.
 - The circuit-to-angle mapping is **guidance from the type of circuit**, not real setup data — which is not public. The app says so where you choose a circuit.
