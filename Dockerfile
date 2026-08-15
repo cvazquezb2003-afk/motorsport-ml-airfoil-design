@@ -83,10 +83,16 @@ sys.exit(0 if rutas.XFOIL_DISPONIBLE else 1)" \
 
 # PRUEBA DE HUMO: que XFOIL PRODUZCA un Cp, no que exista y no de error.
 # La comprobacion anterior (XFOIL_DISPONIBLE) es un os.path.isfile: paso durante
-# todo un despliegue en el que el Cp no funcionaba. Aqui se exige el FICHERO con
-# FILAS NUMERICAS, que es lo unico que demuestra algo.
-# Se prueban las dos variantes para decidir con datos si PLOP hace falta bajo
-# xvfb; basta con que UNA funcione para seguir, y el log dice cual.
+# todo un despliegue en el que el Cp no funcionaba.
+# Se exige que XFOIL converja Y que cp.txt tenga al menos 20 FILAS NUMERICAS. El
+# numero de columnas se informa pero no tumba el build: el parser acepta 2 y 3 a
+# proposito (Debian escribe 2, Windows 3).
+# OJO: hasta la auditoria del 2026-08-15 este comentario afirmaba que se exigian
+# filas numericas y NO era cierto — el script las contaba y solo las imprimia, asi
+# que un cp.txt vacio pasaba. Corregido, y la guarda probada en negativo con
+# fichero vacio, de solo cabecera, con 3 filas y sin fichero.
+# (Este comentario decia tambien que se probaban "las dos variantes" con y sin
+# PLOP. Nunca fue verdad: el script hace UNA sola invocacion, sin PLOP.)
 COPY humo_xfoil.sh /usr/local/bin/humo_xfoil.sh
 RUN chmod +x /usr/local/bin/humo_xfoil.sh && /usr/local/bin/humo_xfoil.sh
 

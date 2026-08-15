@@ -177,7 +177,14 @@ where the DE battery minimised the **production L/D model**. Different objective
 figure is not comparable with the 6.9 %** above; it is reported only because the
 verification stage requires both arms.
 
-Penalising uncertainty costs nothing in real performance. In the original battery, the measured L/D of the penalised proposal beat the unpenalised one in every case: `k=0` was chasing mirages.
+**Penalising uncertainty is close to free, but "free" was overstated.** In the *first,
+8-case* battery the measured L/D of the penalised proposal beat the unpenalised one in
+**6 of 6** comparable cases, and that is where the "every case" claim came from. It does
+not hold at scale. Across the larger batteries: **30 of 36** (July), **28 of 35**
+(densified), and **24 of 38** in the Sobol battery — the one that reflects what the app
+actually returns. So `k=2` still wins more often than it loses, but on the deployed path
+it is closer to a coin flip than the original result suggested. What it reliably buys is
+not a better average, it is the absence of the tail: the worst case.
 
 **And a result worth reporting because it contradicted the expectation.** The 40 cases were run twice: once against the original dataset (the *first battery*, July) and again after densifying it (from 3 speeds to 6, and from 2° to 1° angle steps). Densification was expected to weaken the penalty and make `k=2` worse, since σ dropped ~40%. It didn't. Instead, **the `k=0` error collapsed from 21.5 % in the first battery to 6.9 % in the denser one** — the figure in the table above.
 

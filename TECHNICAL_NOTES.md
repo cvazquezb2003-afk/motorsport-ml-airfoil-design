@@ -269,6 +269,73 @@ error, y la batería de 3.73% a **2.83%** con el máximo bajando de 34.4% a 12.2
 
 ---
 
+## 🧭 EL CAMINO DE MARCHA: ENTRENAMIENTO Y VALIDACIÓN NO USAN EL MISMO XFOIL (2026-08-15)
+
+Salió en la auditoría del sábado, buscando divergencias entre lo validado y lo ejecutado.
+**La divergencia es real, estructural, y sigue ahí.** El impacto medido es cero. Las dos
+cosas a la vez.
+
+**La divergencia.** El dataset y la batería piden a XFOIL cosas distintas:
+
+| | régimen |
+|---|---|
+| `densificar.py` (genera el dataset) | marcha **secuencial 0 → −14 de 1 en 1**; cada `ALFA` parte de la solución convergida del anterior |
+| `piloto_tereal.xfoil_sweep`, llamado desde [bateria_tereal.py:173](bateria_tereal.py:173) | `xfoil_sweep(dat, re, [a])` — **un solo ALFA**, sin marcha |
+
+Comprobado en los datos: `airfoil_dataset.csv` (original) tiene **8 ángulos, paso 2**;
+`airfoil_dataset_densif_merged.csv` tiene **15 ángulos, paso 1**. El ángulo único se
+comporta como la marcha de paso 2 —la convención del dataset viejo— mientras los modelos
+de producción se entrenan con la de paso 1. **La divergencia nació en la promoción a los
+modelos densif y el camino de verificación no se revisó.**
+
+Así que toda cifra del proyecto es `|pred − real|` con `pred` de un régimen y `real` de
+otro. Y el caso 10 demuestra que la diferencia puede ser brutal: 101,30 contra 66,52, con
+el CD un 36 % menor.
+
+**La medición.** Se re-corrieron los `.dat` estrella ya guardados (`bateria_densif_stars/`
+y `bateria_sobol_stars/`, ambos de la rama k=2, que es la de las cifras publicadas):
+**76 geometrías**, cada una con ángulo único y con marcha de paso 1.
+
+Se cambió **una sola cosa**: la lista de alphas que recibe `xfoil_sweep`. Misma función,
+mismo `ITER 100`, mismo `PANE`, mismo `VISC`. Reimplementar el barrido habría medido el
+código nuevo, no el camino de marcha.
+
+**Guarda previa:** el montaje reproduce el caso 10 documentado **exacto** (101,30 / 66,52)
+antes de fiarse de nada más.
+
+| | sensibles al camino | mediana \|único−marcha\| | máximo |
+|---|---|---|---|
+| DENSIF (38) | **1** — el caso 10, ya corregido | 0,000 | 34,78 |
+| SOBOL (38) | **0** | 0,000 | **0,000** |
+
+| | guardado | con marcha paso 1 |
+|---|---|---|
+| DENSIF media / mediana / máx | 2,83 / 2,41 / 12,25 % | **idénticos** |
+| SOBOL media / mediana / máx | 2,09 / 1,82 / 5,53 % | **idénticos** |
+
+**Ninguna cifra publicada se mueve.**
+
+**La equivalencia es EMPÍRICA, no ESTRUCTURAL.** Nada en el código garantiza que ángulo
+único y marcha de paso 1 coincidan; lo que hay es la observación de que en estas 76
+geometrías coinciden salvo una. El mecanismo que produjo el caso 10 sigue disponible:
+XFOIL puede aterrizar en una rama espuria de la capa límite cuando el salto de ángulo es
+grande, y lo hace de forma determinista, así que **repetir la medición no lo detecta —
+solo cambiar el camino lo detecta**. Con geometrías nuevas, ángulos más profundos o
+Reynolds distintos puede volver a morder, y esta vez sin un 34 % que lo delate.
+
+**Lo que corresponde hacer si se vuelve a tocar la batería:** correr las dos marchas y
+comparar, como aquí. Es barato (32 s para 38 geometrías con los `.dat` ya en disco) y es
+la única forma de saberlo.
+
+**Nota de honestidad sobre la propia auditoría.** La afirmación de que el caso 10 era *"el
+único de los 38 sensibles al camino de marcha"* ya estaba escrita — pero dentro del campo
+`correccion` de `bateria_densif_k2_resultados.json`, no en el código ni en las notas. La
+auditoría no la vio y planteó el hallazgo como si nadie lo hubiera mirado. Lo que sí
+aporta esta tirada: esa afirmación **nunca se había verificado de forma independiente**, y
+**la batería del Sobol nunca se había comprobado en absoluto**. Ahora las dos lo están.
+
+---
+
 ## 📐 LA CAPA DE ENTREGA CAD — tres formatos, una sola geometría
 
 > Hasta aquí el proyecto terminaba en un `.dat` normalizado. El usuario tenía que
