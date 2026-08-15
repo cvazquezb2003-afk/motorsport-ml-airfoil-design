@@ -336,6 +336,79 @@ aporta esta tirada: esa afirmación **nunca se había verificado de forma indepe
 
 ---
 
+## 📏 ¿CONSTRUYE CATIA LO QUE SE LE PIDE? (2026-08-15)
+
+La auditoría señaló que **nada** comprobaba que la geometría construida correspondiera a
+los `user_params`: `valida()` mira estructura y cuerda del índice, no el `.dat` resultante.
+Si CATIA recortara un parámetro en silencio, la diferencia aparecería como **error del
+modelo**. Es la misma familia que el STEP que importaba "bien" y dejaba la pieza vacía.
+
+Sin CATIA: los 80 `.dat` estrella (k=2 de ambas baterías) ya estaban en disco.
+
+**El control falló primero, y por eso sirve.** `genera_tereal` devolvió un hueco de
+`0.014469040810`; medir el fichero que ella misma acababa de escribir dio
+`0.014470070525`. Diferencia **1,03 × 10⁻⁶**, con una tolerancia de 1e-9 → abortó.
+
+No era CATIA: `genera_tereal` escribe con `"%.6f"`, así que cada coordenada llega al
+fichero redondeada a ±5 × 10⁻⁷ y la distancia entre dos puntos hereda hasta ~1,4 × 10⁻⁶.
+**Es el suelo de precisión del formato** — con cuerda 300 mm, 0,0009 mm. La tolerancia se
+fijó en 3 × 10⁻⁶ con esa justificación. Sin el control, ese ruido se habría leído como
+desviación de CATIA.
+
+**Qué es medible.** El `.dat` está NORMALIZADO (x de 0 a 1): `project_to_chord_system` se
+lleva la cuerda. Lo medible es el **hueco del TE en unidades de cuerda**, que es
+exactamente la feature `te_rel = TE_mm / cuerda_mm` del entrenamiento. La convención no se
+inventa: `genera_tereal` la define como `norm(ch[0] - ch[-1])`.
+
+**Resultado, 80 geometrías** (290 puntos cada una, x de 0,000000 a 1,000000):
+
+| | |
+|---|---|
+| medido − pedido | mediana −0,000005 · min −0,000014 · max +0,000000 (unid. cuerda) |
+| en mm | mediana **−0,0015 mm** · \|max\| **0,0036 mm** |
+| en % del pedido | mediana 0,10 % · **max 0,14 %** |
+| dentro del 1 % | **80 de 80** |
+
+Confirmado antes de interpretar nada: **estos `.dat` NO llevan el redondeo a 0,05 mm** —
+ni los `dsf_*` ni los `sbl_*` tienen TE múltiplos de 0,05.
+
+**Sesgo sistemático.** Todas las desviaciones son ≤ 0: el TE construido es siempre un pelo
+más fino que el pedido. Se repite en las tres muestras (densif, Sobol y 300 perfiles del
+dataset) y, con 0,0015-0,0036 mm, está 2-4 veces por encima del suelo del formato, así que
+es real y no redondeo. Magnitud: **una milésima del espesor**. Probablemente del recorte y
+la proyección de la conversión TE-real.
+
+**Impacto: ninguno.** Recalculando el L/D predicho con el TE **medido** en vez del pedido:
+
+```
+cambio en el L/D predicho : mediana 0,000 %   max 0,213 %
+error medido contra XFOIL :          2,09 % (Sobol)   2,83 % (DE)
+```
+
+En la mitad de los casos no mueve ni el sexto decimal. **La infidelidad geométrica del TE
+no explica nada del error atribuido al modelo.**
+
+**Los ángulos del TE, y una anomalía que era mía.** Con las 80 óptimas, un proxy de
+pendiente cerca del TE dio `te_upr r = −0,498` y `te_lwr r = +0,661`: flojo y con un signo
+raro. Repetido sobre **300 perfiles del dataset** —donde los parámetros barren todo el
+espacio en vez de apiñarse como hacen los óptimos— sale `te_upr −0,7207` y `te_lwr
++0,7791`. Los dos **fuertemente seguidos**; los signos opuestos son porque el proxy
+multiplicaba la superficie inferior por −1 arbitrariamente. Es evidencia consistente con
+que CATIA honra ambos, **no** una verificación de sus valores absolutos: eso exigiría la
+definición geométrica de CATIA, o generar dos piezas que difieran solo en ese parámetro.
+
+**Los tres no medibles, con su razón:**
+
+| parámetro | por qué no |
+|---|---|
+| `chord_length_mm` | la normalización del `.dat` se la lleva |
+| `leading_edge_thickness_level` | control adimensional de CATIA, sin mapeo físico definido |
+| `trailing_edge_angle_deg` | definición geométrica desconocida; inventar una y comparar contra un número producido por otra no demuestra nada |
+
+No son un hallazgo negativo: son la frontera de lo que un `.dat` normalizado puede contar.
+
+---
+
 ## 📐 LA CAPA DE ENTREGA CAD — tres formatos, una sola geometría
 
 > Hasta aquí el proyecto terminaba en un `.dat` normalizado. El usuario tenía que
@@ -909,6 +982,29 @@ vacía y el A/B con la misma geometría: **la comprobación pasó sin comprobar 
 **Qué queda de `build_ensemble.py`:** el registro de cómo se construyó el artefacto y la vía
 de recuperación si se pierde la release. Reproduce el fichero byte a byte **en el mismo
 entorno** (md5 `444cf10b…`, verificado), pero solo ahí. La fuente de verdad es la release.
+
+---
+
+## 🧱 SUPOSICIONES SOBRE LAS QUE DESCANSA EL PROYECTO (auditoría 2026-08-15)
+
+Distinto de las limitaciones de abajo: aquello no se corrige **a propósito**; esto son
+cosas que se dan por buenas y que, o no se habían comprobado nunca, o se comprobaron y
+conviene decir hasta dónde llega la comprobación. Se numeran para poder citarlas.
+
+| # | suposición | estado |
+|---|---|---|
+| 1 | **CATIA construye exactamente la geometría pedida** | ✅ **comprobada para `te_rel`** (80/80 dentro del 0,14 %, impacto en L/D ≤ 0,21 %); 🟡 **acotada para el resto**: los dos ángulos del TE se siguen fuertemente (r 0,72-0,78) pero sin verificar su valor absoluto, y cuerda, `leading_edge_thickness_level` y `trailing_edge_angle_deg` **no son medibles** desde un `.dat` normalizado. Ver *"¿Construye CATIA lo que se le pide?"* |
+| 2 | **El régimen de XFOIL de la validación equivale al del entrenamiento** | ⚠️ **falsa en estructura, cierta en la práctica**: el dataset marcha de 1 en 1 y la batería mide con ángulo único. Medido sobre 76 geometrías: 1 de 38 sensible en densif (el caso 10, ya corregido), 0 de 38 en Sobol, ninguna cifra se mueve. **Equivalencia empírica, no estructural.** Ver *"El camino de marcha"* |
+| 3 | **M = 10 miembros bastan para estimar σ** | ❌ nunca justificado. No hay curva de convergencia de σ contra M |
+| 4 | **k = 2 es el valor correcto** | ❌ elegido a priori. Nunca se barrió k para ver si 1,5 o 3 dan mejor error medido. Los datos para hacerlo ya existen |
+| 5 | **La caja p5-p95 en 6D representa el espacio real** | ❌ los 944 perfiles pueden ocupar una variedad mucho más delgada dentro de la caja que Sobol muestrea entera. `nn_dist` lo mitiga como aviso, pero no está medido |
+| 6 | **El redondeo del TE a 0,05 mm no cambia el resultado** | ❌ declarado en el README, sin medir (±0,025 mm) |
+| 7 | **Promediar J sobre la banda da diseños comparables a los de ángulo fijo** | ❌ toda la validación es de ángulo fijo; la web promedia. Declarado, sin medir |
+| 8 | **ρ y μ del aire son constantes** (nivel del mar, 15 °C) | ❌ nunca se varían y no está declarado en el README |
+| 9 | **`.dat`, `.csv` y `.step` son la misma geometría** | ❌ hay validadores estructurales del STEP, pero no una comprobación numérica punto a punto de que los tres coinciden |
+
+Las que quedan en ❌ no son fallos: son cosas que el proyecto **no ha demostrado** y que no
+debe afirmar como demostradas.
 
 ---
 
