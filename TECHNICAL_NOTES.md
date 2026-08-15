@@ -719,6 +719,71 @@ nadie lee.
 
 ---
 
+## 🔬 LA ETAPA B DEL SOBOL — lo que la web entrega, medido (2026-08-15)
+
+`comprueba_buscador.py` dejó el 2,8 % atribuido a las geometrías de DE y sin reclamar para
+la web. Esto lo cierra: se generaron las 40 propuestas del buscador desplegado y se
+verificaron en CATIA + XFOIL.
+
+**Cómo, sin tocar la lógica de verificación.** `bateria_sobol.py` genera las propuestas
+(Etapa A, 113,8 s, sin CATIA) y `bateria_sobol_etapaB.py` es un **envoltorio**: importa
+`bateria_densif_etapaB`, le reasigna `IDX`, `RES` y `STARS`, y llama a su `main()`. El
+fichero original no se toca ni una línea. Es el mismo argumento que ese script se aplica a
+sí mismo respecto a julio: si la verificación difiriera aunque fuese en un timeout, la
+comparación dejaría de medir lo que dice medir.
+
+**Decisiones de diseño, para que la comparación aísle una sola variable:**
+- **Ángulo fijado** (`a_from == a_to`): la web promedia sobre banda, la batería usa ángulo
+  fijo. Fijarlo cancela esa diferencia.
+- **TE sin redondear**: los `dsf_*.json` de DE tampoco lo llevan (2.406605, 1.223151…).
+  El redondeo a 0,05 mm es un paso de entrega posterior, idéntico en ambos caminos.
+- **`chord_angle_deg = 350.0`** y las 8 claves de `user_params` en el orden exacto de los
+  `dsf_*`, porque `valida()` exige `len(user_params) == 8`.
+
+**Resultado, k=2 — el comparable:**
+
+| | DE (el del 2,8 %) | Sobol (la web) |
+|---|---|---|
+| error medio | 2,83 % | **2,09 %** |
+| mediana | 2,41 % | 1,82 % |
+| máximo | 12,25 % | **5,53 %** (caso 23) |
+| convergidos | 38/40 | 38/40 |
+| por debajo de la promesa | 11/38 | 9/38 |
+| σ media en el óptimo | 0,406 | 0,540 |
+
+**Mann-Whitney p = 0,19.** Las distribuciones no son distinguibles: se afirma *al menos
+igual de bueno*, **nunca mejor**. El temor de que las geometrías del Sobol, al vivir donde
+σ es un 44 % mayor, rindieran peor en XFOIL, **no se materializó**. El dato relevante es el
+máximo cayendo a menos de la mitad.
+
+Binomial sobre 9/38: **p = 0,0017**, significativo pero **en dirección contraria** al
+winner's curse — k=2 sobrecorrige, que es lo que se diseñó que hiciera.
+
+**k=0, aparte y NO comparable con el 6,9 %:** media 3,14 %, mediana 1,45 %, máximo
+**31,08 %** (caso 28), 24/38 por debajo de la promesa (p = 0,14), σ media 1,350. El k=0 de
+DE minimizaba `prod.predict` (modelo LD); `optimizar(k=0)` minimiza la media del ensemble.
+Objetivos distintos. Se generó solo porque `valida()` exige los dos índices.
+
+**Convergencia:** 38/40 en ambas ramas, y **los mismos dos casos**: 14 (c420 v180 α−8) y
+31 (c330 v180 α−10). Que fallen los mismos con geometrías distintas apunta a la
+**condición**, no a la forma. DE falló en otros (26 y 31 en k=2; 13, 21 y 37 en k=0): el 31
+es el único común.
+
+**Tiempos:** 35-37 s por geometría, medido sobre las marcas de los `.dat`. Las 80 en unos
+48 min, no las ~2 h que estimé desde la cabecera del script densif.
+
+**⚠️ La tabla final y el veredicto que imprime el script son basura en este contexto.**
+Son textos cableados del densif: dicen "40 casos" promediando los convergidos, se titulan
+"BATERÍA DENSIF" y su veredicto habla de promocionar los modelos densif, que no es lo que
+se midió. Las cifras de arriba están recalculadas aparte desde los JSON. No se arregló el
+script porque la alternativa era duplicar la lógica de verificación, que es justo lo que
+él mismo prohíbe.
+
+**Lo que sigue sin medir:** la banda de ángulos y el redondeo del TE. Declarados, no
+absorbidos.
+
+---
+
 ## 🧬 EL ENSEMBLE DESPLEGADO NO ERA EL VALIDADO (2026-08-14)
 
 Salió tirando del hilo anterior. Al querer endurecer la afirmación de reproducibilidad del

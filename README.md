@@ -135,11 +135,47 @@ is the dataset the shipped models are trained on.
 > converges after d+1 = 7 evaluations without taking a step. Powell is derivative-free and
 > does move — usually uphill, ending worse than where it started in most cases.
 >
-> **So the 2.8 % belongs to the DE geometries and is not claimed for what the app
-> returns.** What the app proposes is scored with the same `k = 2` penalty inside the same
-> data-backed bounds, but those specific geometries have not themselves been built and
-> measured. Closing that would mean re-running the CATIA + XFOIL verification on the Sobol
-> proposals. It has not been done.
+> **So the 2.8 % belongs to the DE geometries — and the deployed search now has a number of
+> its own.** The same 40 conditions were re-run with the Sobol sweep, and all 80 resulting
+> proposals were built in CATIA and solved in XFOIL through the identical verification path:
+>
+> | `k = 2`, same 40 conditions | DE (published) | Sobol (deployed) |
+> |---|---|---|
+> | mean error vs XFOIL | 2.83 % | **2.09 %** |
+> | median | 2.41 % | 1.82 % |
+> | worst case | 12.25 % | **5.53 %** |
+> | converged | 38/40 | 38/40 |
+> | underperformed their own promise | 11/38 | 9/38 |
+>
+> **Read that as "at least as good", not "better".** A Mann-Whitney test on the two error
+> distributions gives **p = 0.19** — at this sample size they are not distinguishable, and
+> claiming the deployed search wins would be reading noise. What the result does settle is
+> the specific worry that prompted the check: the Sobol optima sit where the ensemble is
+> 44 % less certain, and the concern was that unearned confidence would show up as real
+> underperformance. It did not. The most informative figure is the **worst case falling from
+> 12.25 % to 5.53 %**: whatever the deployed search gives up on the objective, it does not
+> produce catastrophic proposals.
+>
+> The bias correction still behaves as designed: only **9 of 38** proposals underperformed
+> their prediction (binomial p = 0.0017 — significantly *fewer* than half, i.e. `k=2`
+> overcorrects, by design).
+
+**What that battery does not cover.** Two differences from the live app were left out on
+purpose, and both are declared rather than absorbed. The battery **pins the angle**
+(`a_from == a_to`) so the search algorithm is the only variable, whereas the app averages
+`J` over a band of angles. And the app **rounds the trailing edge to the nearest 0.05 mm**
+as a manufacturability step at delivery, which these geometries do not carry — because the
+DE geometries did not either, and applying it to one side only would have put a second
+difference into a comparison built to isolate one. Both perturbations are small (the
+rounding moves the TE by at most ±0.025 mm), but neither is zero and **neither has been
+measured**.
+
+The `k=0` arm was re-run too — mean 3.14 %, median 1.45 %, worst **31.08 %**, with σ at the
+optimum 2.5× higher than `k=2` (1.350 vs 0.540), which is the winner's curse signature:
+mostly fine, occasionally very wrong. But `optimizar(k=0)` minimises the **ensemble mean**
+where the DE battery minimised the **production L/D model**. Different objective, so **that
+figure is not comparable with the 6.9 %** above; it is reported only because the
+verification stage requires both arms.
 
 Penalising uncertainty costs nothing in real performance. In the original battery, the measured L/D of the penalised proposal beat the unpenalised one in every case: `k=0` was chasing mirages.
 
