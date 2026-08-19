@@ -36,9 +36,11 @@ id_rsa*
 credentials.json
 service-account*.json
 
-# Configuracion local de la maquina (lista de permisos, rutas propias).
-# No lleva credenciales, pero es personal y no aporta a nadie mas.
-.claude/settings.local.json
+# Configuracion de HERRAMIENTA LOCAL (Claude Code): lista de permisos, rutas propias y
+# la configuracion de arranque para previsualizar la app. Es del entorno de quien
+# trabaja, no del proyecto — el equivalente a .vscode/. Tampoco vale como
+# documentacion: solo le sirve a quien use esa herramienta.
+.claude/
 
 
 # -----------------------------------------------------------------------------
