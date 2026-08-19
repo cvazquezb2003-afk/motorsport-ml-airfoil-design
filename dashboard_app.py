@@ -791,11 +791,12 @@ function conNombre(url){
 function abrirGuardar(){
   const o=LAST.inversa; if(!o) return;
   const oa=o.objetivo_angulo||{};
-  // la velocidad forma parte del nombre: mismo circuito y misma cuerda a 180 o a 250
-  // son disenos DISTINTOS (distinto angulo, distintos KPIs) y sin ella se confundirian
-  const nombre=(oa.circuito || ((oa.categoria||'design')+' downforce'))
-               +' · '+Math.round(o.cuerda_mm)+'mm'
-               +' · '+fmtV(velDis(o))+' km/h';
+  // El nombre NO lleva cuerda ni velocidad. Las leyendas de Compare ya las anaden
+  // (comparar.py: _etiqueta, siluetas y Cp) porque cada curva se dibuja a SU velocidad y
+  // omitirla induciria a error. Tenerlas tambien aqui las duplicaba en pantalla:
+  // "medium downforce · 300mm · 180 km/h · chord 300 mm". Se quita del NOMBRE, que es lo
+  // redundante, y no del sufijo, que esta ahi por un motivo documentado.
+  const nombre=(oa.circuito || ((oa.categoria||'design')+' downforce'));
   document.getElementById('save-name').value=nombre;
   document.getElementById('save-msg').textContent='';
   reveal('save-row');
@@ -1131,6 +1132,14 @@ function renderOptimo(o){
     // VU = velocidad REALMENTE usada (viene del backend, no se asume 180)
     const VU=fmtV(o.velocidad_kmh), AT='mean over band · @'+VU+' km/h';
     const FR=o.franja||null;
+    // Puerta C: si pediste un angulo EXACTO y el recomendado sale otro, decirlo AQUI, en
+    // el subtitulo del KPI, no solo dentro del desplegable. Pedir 7 y leer 6 sin ninguna
+    // explicacion a la vista parece un fallo, y no lo es: la inversa optimiza la FORMA
+    // para tu objetivo penalizando la incertidumbre, y el pico de L/D del perfil
+    // resultante puede caer un grado al lado. No aplica en modo circuito o nivel: alli el
+    // objetivo YA es una banda, asi que "you asked for" no significaria nada.
+    const PEDIDO=(FR && oa.alpha_exact!=null && FR.argmax!==oa.alpha_exact)
+      ? ' · you asked for '+oa.alpha_exact+'°' : '';
     // El angulo se presenta como FRANJA, no como punto: dentro de ella el modelo no
     // distingue el L/D de forma significativa, asi que dar 1° seria fingir resolucion.
     // PLEGADA: explica el POR QUE del rango. El rango en si ya esta arriba en el KPI,
@@ -1166,7 +1175,7 @@ function renderOptimo(o){
       +(FR ? '<div class="kpi"><div class="v" style="color:var(--teal)">'+FR.texto+'</div><div class="l">'
         +(FR.es_punto?'recommended angle':'recommended angle range')
         +'<br><span class="at">'+(FR.es_punto?'best L/D in band':'within σ of the best')
-        +' · @'+VU+' km/h</span></div></div>' : '')
+        +PEDIDO+' · @'+VU+' km/h</span></div></div>' : '')
       // "better than this share of EXISTING profiles" se leia como "un 90% mejor".
       // El numero es un PERCENTIL contra perfiles REALES medidos en XFOIL, y eso hay
       // que decirlo en la propia etiqueta: "real profiles" + la condicion de la
