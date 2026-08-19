@@ -34,6 +34,11 @@ PAGE = """<!doctype html>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Inverted Wing Designer</title>
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<!-- Analitica: Umami en la nube. SIN cookies y sin datos personales, asi que no
+     necesita banner de consentimiento. El data-website-id es un identificador PUBLICO
+     de solo escritura: viaja en el HTML de cada visita por diseno, no es un secreto y
+     no da acceso al panel. `defer` para que no bloquee el render. -->
+<script defer src="https://cloud.umami.is/script.js" data-website-id="66231b12-36cb-4296-84b0-cdc5968d8a46"></script>
 <style>
   :root{
     --bg:{{p.fondo}}; --panel:{{p.fondo_papel}}; --txt:{{p.texto}};
@@ -76,6 +81,26 @@ PAGE = """<!doctype html>
   }
   .q{font-size:22px;font-weight:700;margin:0 0 4px}
   .qsub{color:var(--eje);font-size:14px;margin:0 0 22px}
+  /* HOW TO USE: plegable, cerrado por defecto. Quien llega de un enlace sin contexto
+     necesita saber que es esto; quien ya lo sabe no deberia tener que esquivarlo. Por eso
+     <details> nativo: sin JS, sin dependencias y accesible por teclado de serie. */
+  .howto{background:var(--panel);border:1px solid var(--grid);border-radius:12px;
+    margin:0 0 18px}
+  /* El indicador es el MARCADOR NATIVO de <details>: lo dibuja el navegador con su propia
+     fuente, asi que no depende de soporte de emoji ni de escapes CSS. El intento anterior
+     lo pintaba con ::before y un guion escrito a mano, y colo un caracter de control
+     INVISIBLE (Python leyo la secuencia como escape OCTAL): se veia un cuadrado y un 3.
+     No se pone display:flex en el summary: eso impide que Chrome pinte el marcador. */
+  .howto>summary{cursor:pointer;padding:13px 16px;font-size:14px;font-weight:600;
+    color:var(--teal);user-select:none;border-radius:12px}
+  .howto[open]>summary{border-radius:12px 12px 0 0}
+  .howto>summary:hover{background:var(--bg)}
+  .howto .hbody{padding:4px 16px 16px;border-top:1px solid var(--grid)}
+  .howto h4{margin:14px 0 3px;font-size:11px;letter-spacing:.09em;
+    text-transform:uppercase;color:var(--eje);font-weight:700}
+  .howto .hbody p{margin:0;font-size:14px;max-width:78ch}
+  .howto .htail{margin-top:15px;padding-top:12px;border-top:1px solid var(--grid);
+    font-size:13px;color:var(--eje);max-width:78ch}
   .doors{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
   @media(max-width:640px){.doors{grid-template-columns:1fr}}
   .door{background:var(--panel);border:1px solid var(--grid);border-radius:12px;
@@ -235,6 +260,36 @@ PAGE = """<!doctype html>
 <div id="view-design">
   <p class="q">{{ q.pregunta }}</p>
   <p class="qsub">Three ways in, same target: the wing's working angle. Pick whichever fits you.</p>
+
+  <details class="howto">
+    <summary>New here? How this works</summary>
+    <div class="hbody">
+      <h4>What this is</h4>
+      <p>A tool that proposes downforce wing sections for motorsport. Instead of drawing a
+        profile and then testing it, you describe what you need and it proposes the geometry.</p>
+
+      <h4>What you give it</h4>
+      <p>A circuit &mdash; or a downforce level, or an exact angle &mdash; plus the chord in
+        millimetres and the speed in km/h.</p>
+
+      <h4>What you get back</h4>
+      <p>The proposed section with its predicted L/D and CD, the model's own uncertainty
+        (&sigma;), a recommended angle range rather than a single number, polars across
+        several speeds, the pressure distribution computed in XFOIL on that geometry, and
+        sectional loads per unit span.</p>
+
+      <h4>What you can do next</h4>
+      <p>Save designs, compare two or three of them at a time &mdash; silhouettes at true
+        scale in millimetres, overlaid polars and pressure distributions &mdash; and download
+        the geometry as .dat, .csv or .step to take into CAD.</p>
+
+      <h4>Where it comes from</h4>
+      <p>A design space of 944 aerofoils generated in CATIA and solved in XFOIL.</p>
+
+      <div class="htail">Generating a design takes about 30 seconds. There is a real sweep of
+        32,768 candidates behind it, not a loading animation.</div>
+    </div>
+  </details>
 
   <div class="doors" id="doors">
     {% for o in q.opciones %}
