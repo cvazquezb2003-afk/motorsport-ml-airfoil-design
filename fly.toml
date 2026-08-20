@@ -10,11 +10,14 @@ primary_region = 'lhr'
 [http_service]
   internal_port = 5001
   force_https = true
-  # min_machines_running = 1: la maquina NO se para al quedarse sin trafico.
-  # Con 0, la primera visita pagaba el arranque en frio -- arrancar la VM mas
-  # cargar ~640 MB de modelos, medido en ~40 s. Para un enlace que se comparte
-  # publicamente eso es tiempo suficiente para que alguien cierre la pestana.
-  # A cambio, la maquina factura de forma continua en vez de solo bajo uso.
+  # min_machines_running: 0 de noche, 1 cuando se comparte el enlace.
+  #   1 = la maquina NO se para al quedarse sin trafico. Primera visita en ~1,5 s,
+  #       pero factura de forma continua en vez de solo bajo uso.
+  #   0 = se para al quedarse sin trafico, y la primera visita paga el arranque en
+  #       frio: arrancar la VM mas cargar ~640 MB de modelos, medido en ~40 s.
+  #       Suficiente para que alguien que llega de un enlace cierre la pestana.
+  # AHORA EN 1: el enlace se esta compartiendo. Con 0 la primera visita pagaba el
+  # arranque en frio -- medido el 2026-08-20: 25,6 s. BAJAR A 0 cuando pase el pico.
   auto_stop_machines = 'stop'
   auto_start_machines = true
   min_machines_running = 1
