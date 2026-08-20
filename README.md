@@ -4,6 +4,8 @@
 
 **▶ Live demo: [inverted-wing-designer.fly.dev](https://inverted-wing-designer.fly.dev)**
 
+Built independently, outside any coursework or degree requirement — to find out how much of an aerodynamic design process could actually be automated.
+
 *Best viewed on desktop — the layout does not adapt to narrow screens. The first load can take a few seconds while the server wakes up.*
 
 Tell it the circuit, the chord and the speed. It proposes a wing section, tells you how well it should perform, and — the part that matters — tells you how much to trust that number.
@@ -348,7 +350,3 @@ Some limits worth stating plainly:
 For the full technical record — dataset construction, every design decision and the
 reasoning behind it, the bugs that shaped the project and why several "obvious" fixes
 were rejected — see **[TECHNICAL_NOTES.md](TECHNICAL_NOTES.md)** (in Spanish, ~1,750 lines).
-
----
-
-*MSc Motorsport Engineering thesis project.*
