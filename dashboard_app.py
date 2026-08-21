@@ -281,7 +281,7 @@ PAGE = """<!doctype html>
   <span class="nav">
     <button class="navbtn on" id="nav-design" onclick="volverDesign()">Design</button>
     <button class="navbtn" id="nav-saved" onclick="mostrarSaved()">Saved designs <span id="nav-count"></span></button>
-    <button class="navbtn" id="nav-metodo" onclick="mostrarMetodo()">The method</button>
+    <button class="navbtn" id="nav-metodo" data-umami-event="method_opened" onclick="mostrarMetodo()">The method</button>
   </span>
 </header>
 <main>
@@ -416,7 +416,7 @@ PAGE = """<!doctype html>
   <!-- RESUMEN + boton final -->
   <div id="summary" class="panel hide">
     <div id="summary-text" class="summary-line"></div>
-    <button class="btn big" onclick="disenar()">Design my airfoil</button>
+    <button class="btn big" data-umami-event="design_started" onclick="disenar()">Design my airfoil</button>
   </div>
 
 </div><!-- /view-design -->
@@ -432,7 +432,7 @@ PAGE = """<!doctype html>
     <label>Name this design</label>
     <div class="saverow">
       <input type="text" id="save-name" placeholder="e.g. Monaco · 300mm · 250 km/h">
-      <button class="btn" onclick="guardarDiseno()">Save</button>
+      <button class="btn" data-umami-event="design_saved" onclick="guardarDiseno()">Save</button>
       <button class="mini" onclick="hide('save-row')">Cancel</button>
     </div>
     <div id="save-msg" style="font-size:12.5px;color:var(--eje);margin-top:8px"></div>
@@ -455,7 +455,7 @@ PAGE = """<!doctype html>
   <p class="q step" style="margin-top:0">Saved designs</p>
   <div id="cmp-bar" class="panel hide" style="padding:12px 16px;margin-bottom:14px">
     <span id="cmp-count" style="font-size:13.5px;color:var(--eje)"></span>
-    <button class="btn" style="margin-top:0;margin-left:12px" onclick="compararSel()">Compare selected</button>
+    <button class="btn" style="margin-top:0;margin-left:12px" data-umami-event="compare_run" onclick="compararSel()">Compare selected</button>
     <button class="mini" style="margin-left:8px" onclick="limpiarSel()">Clear</button>
     <div id="cmp-msg" style="font-size:12.5px;color:var(--amber);margin-top:8px"></div>
   </div>
@@ -558,6 +558,46 @@ PAGE = """<!doctype html>
 </main>
 
 <script>
+// ============================ ANALITICA (Umami) ==============================
+// ENVOLTORIO OBLIGATORIO. Si el script de Umami no cargo -- bloqueador de anuncios, red
+// caida, modo sin conexion -- `umami` NO EXISTE y una llamada directa lanza
+// ReferenceError. Dentro de disenar(), antes del fetch, eso romperia el diseno entero
+// por una metrica. Ninguna medicion vale eso: TODA llamada pasa por aqui.
+function ev(nombre){
+  try{ if(window.umami && typeof umami.track === 'function') umami.track(nombre); }
+  catch(e){}
+}
+
+// El tramo va en el NOMBRE del evento, no en propiedades: las propiedades dependen del
+// plan de Umami y esto funciona en cualquiera.
+function tramoEspera(ms){
+  const s = ms/1000;
+  return s < 30 ? '0_30s' : (s < 60 ? '30_60s' : (s < 120 ? '60_120s' : '120s_plus'));
+}
+
+// Marca de inicio del calculo EN CURSO, o null. Da el tramo de design_shown y permite
+// detectar el abandono.
+let DISENO_T0 = null;
+
+// ABANDONO: senal SECUNDARIA, y SUBCUENTA a proposito. Umami envia con fetch, no con
+// sendBeacon, asi que al CERRAR la pestana el navegador puede matar la peticion antes de
+// que salga. Detecta bien "se cambio de pestana"; mal "cerro el navegador".
+// La cifra FIABLE del abandono es la resta:
+//     design_started - design_shown_* - design_failed
+// Esos dos si se disparan con la pestana viva, asi que llegan.
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState === 'hidden' && DISENO_T0) ev('design_abandoned');
+});
+
+// La intro es un <details>: el clic en <summary> ocurre al ABRIR y al CERRAR. Con
+// data-umami-event contaria las dos y el numero no significaria nada. Se escucha
+// `toggle` y solo se cuenta la apertura.
+(function(){
+  const d = document.querySelector('details.howto');
+  if(d) d.addEventListener('toggle', function(){ if(d.open) ev('intro_opened'); });
+})();
+// =============================================================================
+
 const CAT_COLOR = {low:"{{p.k0}}", medium:"{{p.eje}}", high:"{{p.k2}}"};
 
 // puertas: activar y mostrar su panel
@@ -1150,6 +1190,10 @@ function disenar(){
     (ST.design && ST.design.summary) ? ST.design.summary : '';
   hide('vecino'); hide('save-row'); hide('kpis'); LAST={};
   const box=document.getElementById('final');
+  // design_started NO se mide aqui sino en el ATRIBUTO del boton: a esta funcion la
+  // llaman tambien las rutas de QA (?design=1, ?seed=..., _esperaYGuarda) y contarian
+  // como usuarios que no existen.
+  DISENO_T0 = Date.now();
   const pararEspera = esperaViva(box, 'Optimising your aerofoil',
     'Scoring 32,768 candidate shapes against a 10-model ensemble. '
     +'This is real computation, not a download.', true);
@@ -1161,13 +1205,21 @@ function disenar(){
   // .catch() encadenado, una excepcion de renderOptimo tambien caeria ahi y dirian
   // "no se pudo contactar con el servidor" cuando el servidor respondio de sobra.
   .then(function(o){
-    if(o.error){box.innerHTML='<div class="framing" style="border-color:{{p.k0}}">'+o.error+'</div>';return;}
+    if(o.error){
+      box.innerHTML='<div class="framing" style="border-color:{{p.k0}}">'+o.error+'</div>';
+      ev('design_failed'); DISENO_T0=null; return;
+    }
     LAST.inversa=o; LAST.summary=(ST.design&&ST.design.summary)||'';
     renderOptimo(o);
+    // design_shown se mide AQUI y no dentro de renderOptimo, que tambien corre al abrir
+    // un diseno guardado -- donde no hay calculo ninguno que medir.
+    ev('design_shown_' + tramoEspera(Date.now() - DISENO_T0));
+    DISENO_T0 = null;
     fetchOptimoGeom(o.shape_params, o.alpha_abs);
   }, function(){
     box.innerHTML='<div class="framing" style="border-color:{{p.k0}}">'
       +'Could not reach the server. Nothing was computed. Try again.</div>';
+    ev('design_failed'); DISENO_T0=null;
   })
   // Sin esto el contador seguia corriendo bajo el resultado (o bajo el error).
   .finally(pararEspera);
@@ -1351,6 +1403,7 @@ function fetchOptimoGeom(sp, alpha_abs){
     if(o.error){box.innerHTML='<div class="framing" style="border-color:{{p.k0}}">'+o.error+'</div>';return;}
     LAST.optimo=o;
     renderOptimoGeom(o);
+    ev('cp_shown');
   }, function(){
     box.innerHTML='<div class="framing" style="border-color:{{p.k0}}">'
       +'Could not reach the server. The pressure distribution was not computed.</div>';
@@ -1461,14 +1514,14 @@ function renderOptimoGeom(o){
       +'<div class="framing" style="margin-top:12px'+(fb?';border-color:var(--amber)':'')+'">'+nota+'</div>'
       +'<div id="cp-optimo" style="margin-top:16px"></div>'
       +'<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px">'
-      +'<a class="btn" href="'+conNombre(o.dat_url)+'" download style="margin-top:0;text-decoration:none">Download .dat — geometry</a>'
+      +'<a class="btn" href="'+conNombre(o.dat_url)+'" download onclick="ev(&quot;download_dat&quot;)" style="margin-top:0;text-decoration:none">Download .dat — geometry</a>'
       // CSV: MISMOS puntos y MISMO orden que el .dat, escalados a mm reales por la
       // cuerda (el .dat es x/c). Para meterlo en CATIA como curva ya a escala.
-      +(o.csv_url ? '<a class="btn" href="'+conNombre(o.csv_url)+'" download style="margin-top:0;'
+      +(o.csv_url ? '<a class="btn" href="'+conNombre(o.csv_url)+'" download onclick="ev(&quot;download_csv&quot;)" style="margin-top:0;'
         +'text-decoration:none">Download .csv — mm for CAD</a>' : '')
       // STEP: la MISMA curva que el .csv, ya como geometria CAD nativa (spline
       // cerrada en mm reales) para no tener que reconstruirla desde los puntos.
-      +(o.step_url ? '<a class="btn" href="'+conNombre(o.step_url)+'" download style="margin-top:0;'
+      +(o.step_url ? '<a class="btn" href="'+conNombre(o.step_url)+'" download onclick="ev(&quot;download_step&quot;)" style="margin-top:0;'
         +'text-decoration:none">Download .step — CAD curve</a>' : '')
       +'<button class="mini" onclick="descargarTxt()">Download summary (.txt)</button>'
       +'</div>'
