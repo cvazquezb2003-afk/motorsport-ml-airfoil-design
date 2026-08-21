@@ -8,6 +8,8 @@ COMPARACION de disenos guardados (NIVEL 2). Portable e INSTANTANEO:
 Reutiliza: curvas_optimo (modelos ya cargados + features), airfoil_geom_fixed,
 estilo_graficas (paleta COMPARE_COLORS). NO toca produccion.
 """
+import re
+
 import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -38,11 +40,39 @@ def _vel_de(d):
     return float(v), False
 
 
+def _nombre_ya_dice(d, valor, unidad):
+    r"""¿El NOMBRE del diseno ya menciona este valor? Evita leyendas que se repiten:
+    "medium downforce · 300mm · 180 km/h · chord 300 mm".
+
+    AUTORIDAD: `nombre_auto` lo decide el front al guardar, comparando lo tecleado con
+    lo prerrellenado. Si es True el nombre es el automatico y lleva cuerda Y velocidad,
+    asi que no hay nada que adivinar.
+
+    Si el nombre es propio (False) o el guardado es ANTIGUO y no trae el campo, se cae
+    al emparejamiento por texto ANCLADO AL VALOR REAL de ESTE diseno, nunca a un patron
+    generico. Con /\d+mm/ bastaria renombrar un perfil de 450 a "como el de 300mm" para
+    que suprimieramos la cuerda y la leyenda no dijera 450 en ningun sitio; anclado al
+    valor, 450 no aparece y el sufijo se anade. Y la decision es POR CAMPO: "Monza 300mm"
+    suprime la cuerda y sigue anadiendo la velocidad.
+
+    El NOMBRE usa "300mm" (sin espacio) y "180 km/h"; la leyenda usa otro formato, asi
+    que se busca con la convencion del nombre tolerando el espacio. re.escape por el
+    punto decimal de velocidades como 187.5, y los guardas (?<!\d)/(?!\d) para que 180
+    no case dentro de 1800.
+    """
+    if d.get("nombre_auto") is True:
+        return True
+    txt = f"{valor:g}"
+    pat = r"(?<!\d)" + re.escape(txt) + r"(?!\d)\s*" + unidad
+    return re.search(pat, str(d.get("name") or ""), re.I) is not None
+
+
 def _etiqueta(d):
-    """Nombre para leyenda: incluye SIEMPRE la velocidad, porque desde C5 cada curva
-    se dibuja a la suya y comparar sin verla induciria a error."""
+    """Nombre para leyenda: anade la velocidad porque desde C5 cada curva se dibuja a la
+    suya y comparar sin verla induciria a error -- salvo que el nombre ya la diga."""
     v, asumida = _vel_de(d)
-    return f"{d['name']} · {v:g} km/h" + (" †" if asumida else "")
+    suf = "" if _nombre_ya_dice(d, v, r"km/h") else f" · {v:g} km/h"
+    return f"{d['name']}{suf}" + (" †" if asumida else "")
 
 
 def _subtitulo_vel(disenos, mismo_angulo=True, breve=False):
@@ -196,7 +226,9 @@ def fig_comparar_siluetas(disenos):
         ys = np.append(C[:, 1], C[0, 1]) * ch
         r, g, b = _hex_rgb(c)
         fig.add_trace(go.Scatter(
-            x=xs, y=ys, mode="lines", name=f"{d['name']} · chord {ch:.0f} mm",
+            x=xs, y=ys, mode="lines",
+            name=d["name"] + ("" if _nombre_ya_dice(d, ch, "mm")
+                              else f" · chord {ch:.0f} mm"),
             line=dict(color=c, width=2), fill="toself",
             fillcolor=f"rgba({r},{g},{b},0.07)",
             hovertemplate=(f"<b>{d['name']}</b><br>x: %{{x:.1f}} mm<br>"
@@ -279,7 +311,8 @@ def fig_comparar_cp(disenos, vel=None):
             continue
         A, B = _split_arc(cp3)
         suc, pre = (A, B) if np.nanmean(A[:, 2]) <= np.nanmean(B[:, 2]) else (B, A)
-        etiqueta = f"{d['name']} · α {a_rec:g}° · {v:g} km/h" + (" †" if asumida else "")
+        sufv = "" if _nombre_ya_dice(d, v, r"km/h") else f" · {v:g} km/h"
+        etiqueta = f"{d['name']} · α {a_rec:g}°{sufv}" + (" †" if asumida else "")
         for j, arr in enumerate((suc, pre)):
             o = np.argsort(arr[:, 0])
             fig.add_trace(go.Scatter(

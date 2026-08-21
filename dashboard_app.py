@@ -817,15 +817,20 @@ function conNombre(url){
   return n ? (url+'?n='+encodeURIComponent(n)) : url;
 }
 
+let NOMBRE_SUGERIDO='';   // ultimo nombre prerrellenado, para detectar si se acepto
 function abrirGuardar(){
   const o=LAST.inversa; if(!o) return;
   const oa=o.objetivo_angulo||{};
-  // El nombre NO lleva cuerda ni velocidad. Las leyendas de Compare ya las anaden
-  // (comparar.py: _etiqueta, siluetas y Cp) porque cada curva se dibuja a SU velocidad y
-  // omitirla induciria a error. Tenerlas tambien aqui las duplicaba en pantalla:
-  // "medium downforce · 300mm · 180 km/h · chord 300 mm". Se quita del NOMBRE, que es lo
-  // redundante, y no del sufijo, que esta ahi por un motivo documentado.
-  const nombre=(oa.circuito || ((oa.categoria||'design')+' downforce'));
+  // El nombre por defecto SI lleva cuerda y velocidad: es donde el usuario espera
+  // distinguir dos disenos en Saved designs. La duplicacion en las leyendas de Compare
+  // ("... 300mm · 180 km/h · chord 300 mm") se resuelve en comparar.py, que omite el
+  // sufijo cuando el nombre ya dice ese dato -- ver _nombre_ya_dice().
+  // Se recuerda el sugerido para saber DESPUES si el usuario lo acepto tal cual: esa es
+  // la senal `nombre_auto`, mas fiable que buscar texto dentro del nombre.
+  const nombre=(oa.circuito || ((oa.categoria||'design')+' downforce'))
+               +' · '+Math.round(o.cuerda_mm)+'mm'
+               +' · '+fmtV(velDis(o))+' km/h';
+  NOMBRE_SUGERIDO=nombre;
   document.getElementById('save-name').value=nombre;
   document.getElementById('save-msg').textContent='';
   reveal('save-row');
@@ -836,13 +841,17 @@ function guardarDiseno(){
   const o=LAST.inversa, g=LAST.optimo;
   if(!o){return;}
   const oa=o.objetivo_angulo||{};
-  const nombre=(document.getElementById('save-name').value||'').trim()
-               || ('design · '+Math.round(o.cuerda_mm)+'mm · '+fmtV(velDis(o))+' km/h');
+  const escrito=(document.getElementById('save-name').value||'').trim();
+  const nombre=escrito || ('design · '+Math.round(o.cuerda_mm)+'mm · '+fmtV(velDis(o))+' km/h');
+  // nombre_auto: el usuario acepto el sugerido (o lo dejo vacio y se uso el de reserva),
+  // asi que el nombre YA lleva cuerda y velocidad. Es la senal que usa comparar.py para
+  // no repetirlas en la leyenda; saberlo aqui es mas fiable que deducirlo del texto.
+  const nombre_auto=(escrito==='') || (escrito===NOMBRE_SUGERIDO);
   // Guardamos el RESULTADO YA CALCULADO (curvas y Cp incluidos) para que
   // recuperarlo sea instantaneo: no hay que reejecutar la inversa (~9s).
   const item={
     id:'d_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
-    name:nombre, saved_at:new Date().toISOString(),
+    name:nombre, nombre_auto:nombre_auto, saved_at:new Date().toISOString(),
     circuito:oa.circuito||null, categoria:oa.categoria||null,
     banda:(oa.alpha_lo===oa.alpha_hi)?('|α| '+oa.alpha_lo+'°')
           :('|α| '+oa.alpha_lo+'–'+oa.alpha_hi+'°'),
@@ -872,6 +881,12 @@ function borrarDiseno(id){
   actualizarContador(); pintarSaved();
 }
 
+// ¿El nombre del diseno ya contiene este dato? Misma idea que _nombre_ya_dice() de
+// comparar.py, pero aqui basta comparar texto: lo que se pasa se compone con EL MISMO
+// formato con el que se compuso el nombre, asi que no hay que tolerar variantes.
+function yaEnNombre(d, txt){
+  return String(d.name||'').indexOf(String(txt))>=0;
+}
 function pintarSaved(){
   const arr=leerSaved(), box=document.getElementById('saved-list');
   if(!arr.length){
@@ -888,8 +903,17 @@ function pintarSaved(){
       +'<label class="pick"><input type="checkbox" '+(on?'checked':'')
       +' onchange="toggleSel(&quot;'+d.id+'&quot;)"> Add to compare</label>'
       +'<div class="nm">'+esc(d.name)+'</div>'
-      +'<div class="meta">'+esc(donde)+' · '+d.banda+' · chord '+Math.round(d.cuerda_mm)+' mm'
-      +' · '+fmtV(velDis(d))+' km/h'+(velAsumida(d)?' †':'')+'<br>'+fecha+'</div>'
+      // El .meta NO repite lo que el nombre ya dice: con el nombre automatico
+      // ("medium downforce · 300mm · 180 km/h") la tarjeta lo mostraba dos veces
+      // seguidas. Con un nombre propio ("Prueba A") el meta es la UNICA via de saber de
+      // que diseno se trata, asi que ahi se mantiene entero. Banda y fecha nunca estan
+      // en el nombre, asi que van siempre.
+      +'<div class="meta">'
+      +(yaEnNombre(d, donde) ? '' : esc(donde)+' · ')
+      +d.banda
+      +(yaEnNombre(d, Math.round(d.cuerda_mm)+'mm') ? '' : ' · chord '+Math.round(d.cuerda_mm)+' mm')
+      +(yaEnNombre(d, fmtV(velDis(d))+' km/h') ? '' : ' · '+fmtV(velDis(d))+' km/h')
+      +(velAsumida(d)?' †':'')+'<br>'+fecha+'</div>'
       +'<div class="ld">'+d.ld.toFixed(1)+'</div><div class="ldl">Predicted L/D (band mean)</div>'
       +'<div class="acts">'
       +'<button class="mini" onclick="verGuardado(&quot;'+d.id+'&quot;)">View</button>'
@@ -943,7 +967,7 @@ function compararSel(mantener){
   cur.innerHTML='<div style="font-size:15px"><span class="spin"></span>Building comparison…</div>';
   fetch('/api/comparar',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({disenos:ds.map(d=>({
-      name:d.name, shape_params:d.shape_params, velocidad_kmh:velDis(d),
+      name:d.name, nombre_auto:d.nombre_auto, shape_params:d.shape_params, velocidad_kmh:velDis(d),
       banda_lo:(d.inversa&&d.inversa.objetivo_angulo)?d.inversa.objetivo_angulo.alpha_lo:null,
       banda_hi:(d.inversa&&d.inversa.objetivo_angulo)?d.inversa.objetivo_angulo.alpha_hi:null}))})})
   .then(r=>r.json()).then(o=>{
@@ -971,7 +995,7 @@ function compararCp(){
     +'Running XFOIL at each profile’s recommended angle…</div>';
   fetch('/api/comparar_cp',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({disenos:ds.map(d=>({
-      name:d.name, shape_params:d.shape_params, alpha_rec:d.alpha_rec,
+      name:d.name, nombre_auto:d.nombre_auto, shape_params:d.shape_params, alpha_rec:d.alpha_rec,
       velocidad_kmh:velDis(d)}))})})
   .then(r=>r.json()).then(o=>{
     if(o.error){box.innerHTML='<div class="framing" style="border-color:{{p.k0}}">'+o.error+'</div>';return;}
