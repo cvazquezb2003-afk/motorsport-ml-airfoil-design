@@ -103,6 +103,35 @@ PAGE = """<!doctype html>
     font-size:13px;color:var(--eje);max-width:78ch}
   .doors{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
   @media(max-width:640px){.doors{grid-template-columns:1fr}}
+
+  /* ---------------------------------------------------------------------------
+     MOVIL (<=640px). Medido el 2026-08-20 a 380 y 430 px: el UNICO desbordamiento
+     de pagina lo causaba la cabecera. Todo lo demas -- .doors, .rgrid, .cgrid,
+     .kpis, .levels, .cards -- ya colapsaba bien.
+     --------------------------------------------------------------------------- */
+  @media(max-width:640px){
+    /* La cabecera era flex NOWRAP: el h1 se aplastaba a 83px y el subtitulo a 65px
+       (se partian en columnas de una palabra) mientras .nav, que no encoge porque
+       los botones llevan padding, se salia 81px. Con wrap la nav baja a su linea. */
+    header{flex-wrap:wrap;padding:12px 14px;gap:8px;align-items:center}
+    header h1{font-size:17px;width:auto}
+    header .sub{display:none}          /* 334px de subtitulo no caben y no hacen falta */
+    .nav{margin-left:0;width:100%;justify-content:flex-start;flex-wrap:wrap}
+    .navbtn{padding:7px 10px;font-size:12.5px}
+    main{padding-left:14px;padding-right:14px}
+
+    /* GRAFICAS: caben en el contenedor pero su SVG interno se dibuja a 500-679px y
+       queda recortado (leyendas y etiquetas de eje). En vez de rehacer cada figura
+       -- backend, no sabe el ancho del cliente -- se le da scroll horizontal a su
+       CONTENEDOR con :has(), y min-width a la grafica: se mantiene legible y se
+       arrastra con el dedo, y la PAGINA no se mueve.
+       Con :has() NO se inserta ningun div. Envolver las 9 graficas cambiaria que
+       elemento es hijo de cada flex/grid (#cmp-siluetas es flex column centrado) y
+       eso si podria mover el escritorio. Asi la estructura no se toca, y la regla
+       solo existe por debajo de 640px. */
+    *:has(> .js-plotly-plot){overflow-x:auto;-webkit-overflow-scrolling:touch}
+    .js-plotly-plot{min-width:560px}
+  }
   .door{background:var(--panel);border:1px solid var(--grid);border-radius:12px;
     padding:18px;cursor:pointer;transition:border-color .15s,transform .1s;text-align:left}
   .door:hover{border-color:var(--eje);transform:translateY(-2px)}
