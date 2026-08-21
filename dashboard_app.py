@@ -1113,6 +1113,36 @@ function verGuardado(id){
   }
 }
 
+// ESPERA VIVA. Un spinner que no cambia es indistinguible de uno colgado: a los 4
+// minutos la pantalla era identica al segundo 1 y la gente cerraba la pestana. El
+// CONTADOR de segundos es lo unico que dice "sigo trabajando" sin prometer un final,
+// que aqui no se puede prometer: lo mismo son 35 s que 270 s si el servidor esta
+// ocupado.
+// NO se inventan etapas ("cargando modelos", "evaluando candidatos"): el backend no
+// informa de por donde va, asi que lo unico que se sabe de verdad es cuanto tiempo ha
+// pasado, y eso es lo unico que se dice.
+const AVISO_LENTO_S = 45;
+function esperaViva(box, titulo, detalle, conAviso){
+  const t0 = Date.now();
+  box.innerHTML =
+    '<div style="font-size:15px"><span class="spin"></span>'+titulo
+    +' · <b class="esp-seg">0s</b></div>'
+    +'<div style="font-size:13.5px;color:var(--eje);margin-top:6px;max-width:62ch">'
+    +detalle+'</div>'
+    +'<div class="esp-lento" style="font-size:13.5px;color:var(--amber);margin-top:8px;'
+    +'max-width:62ch;display:none">The server is shared, so this can take longer when '
+    +'it is busy. Nothing has failed — the result appears as soon as it is ready.</div>';
+  // querySelector ACOTADO a la caja, no getElementById: si algun dia coinciden dos
+  // esperas en pantalla, cada una toca la suya.
+  const seg = box.querySelector('.esp-seg'), lento = box.querySelector('.esp-lento');
+  const id = setInterval(function(){
+    const t = Math.round((Date.now()-t0)/1000);
+    if(seg) seg.textContent = t+'s';
+    if(conAviso && lento && t >= AVISO_LENTO_S) lento.style.display='block';
+  }, 1000);
+  return function(){ clearInterval(id); };
+}
+
 // BOTON FINAL: cambia a la vista Results, corre la inversa (spinner) y pinta el optimo
 function disenar(){
   mostrarResults();
@@ -1120,16 +1150,27 @@ function disenar(){
     (ST.design && ST.design.summary) ? ST.design.summary : '';
   hide('vecino'); hide('save-row'); hide('kpis'); LAST={};
   const box=document.getElementById('final');
-  box.innerHTML='<div style="font-size:15px"><span class="spin"></span>Optimising your airfoil…</div>';
+  const pararEspera = esperaViva(box, 'Optimising your aerofoil',
+    'Scoring 32,768 candidate shapes against a 10-model ensemble. '
+    +'This is real computation, not a download.', true);
   reveal('final');
   fetch('/api/inversa',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify(ST)})
-  .then(r=>r.json()).then(o=>{
+  .then(r=>r.json())
+  // Forma de DOS argumentos: el segundo atrapa solo los fallos de fetch/json. Con
+  // .catch() encadenado, una excepcion de renderOptimo tambien caeria ahi y dirian
+  // "no se pudo contactar con el servidor" cuando el servidor respondio de sobra.
+  .then(function(o){
     if(o.error){box.innerHTML='<div class="framing" style="border-color:{{p.k0}}">'+o.error+'</div>';return;}
     LAST.inversa=o; LAST.summary=(ST.design&&ST.design.summary)||'';
     renderOptimo(o);
     fetchOptimoGeom(o.shape_params, o.alpha_abs);
-  });
+  }, function(){
+    box.innerHTML='<div class="framing" style="border-color:{{p.k0}}">'
+      +'Could not reach the server. Nothing was computed. Try again.</div>';
+  })
+  // Sin esto el contador seguia corriendo bajo el resultado (o bajo el error).
+  .finally(pararEspera);
 }
 
 // formato corto de velocidad: 180 y no 180.0, pero 187.5 se conserva
@@ -1296,17 +1337,25 @@ function renderOptimo(o){
 // GEOMETRIA DEL OPTIMO REAL: .dat descargable + Cp (fallback vecino). Vecino = contexto.
 function fetchOptimoGeom(sp, alpha_abs){
   const box=document.getElementById('vecino');
-  box.innerHTML='<div style="font-size:15px"><span class="spin"></span>Computing the pressure distribution of your optimal profile…</div>';
+  // Contador tambien aqui (13-16 s medidos), pero SIN el aviso de servidor ocupado:
+  // esta espera no se dispara a minutos como la inversa.
+  const pararEspera = esperaViva(box, 'Computing the pressure distribution',
+    'Running XFOIL on your optimal profile.', false);
   reveal('vecino');
   const inv=LAST.inversa||{};
   fetch('/api/optimo',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({shape_params:sp, alpha_abs:alpha_abs,
                          sigma:inv.sigma, nn_dist:inv.nn_dist})})
-  .then(r=>r.json()).then(o=>{
+  .then(r=>r.json())
+  .then(function(o){
     if(o.error){box.innerHTML='<div class="framing" style="border-color:{{p.k0}}">'+o.error+'</div>';return;}
     LAST.optimo=o;
     renderOptimoGeom(o);
-  });
+  }, function(){
+    box.innerHTML='<div class="framing" style="border-color:{{p.k0}}">'
+      +'Could not reach the server. The pressure distribution was not computed.</div>';
+  })
+  .finally(pararEspera);
 }
 
 // Reynolds en notacion cientifica con 1 decimal: 6.2×10⁵ (el separador de miles
