@@ -497,7 +497,9 @@ PAGE = """<!doctype html>
       geometry and verified in XFOIL. Naive optimisation overshoots by <b>{{ m.d0 }}%</b>
       on average; penalising the model's own uncertainty brings it to <b>{{ m.d2 }}%</b>.
       The bias is systematic, not noise: the real profile underperforms the naive
-      prediction in <b>{{ m.signos }} of {{ m.n_signos }}</b> converged cases.</p>
+      prediction in <b>{{ m.signos }} of {{ m.n_signos }}</b> converged cases.
+      The designs this tool actually serves were built and measured the same way:
+      <b>{{ m.web }}%</b>.</p>
     <div id="m-winner"></div>
   </div>
 
@@ -1722,6 +1724,37 @@ _METODO = None
 _METODO_NUM = None
 
 
+def _error_web():
+    """Error medio de LO QUE LA APP ENTREGA, derivado de la bateria web.
+
+    Es la cifra 1,78 %: media de banda medida contra el LD_predicho que muestra la app,
+    sobre las 40 condiciones con banda promediada y TE redondeado a 0,05 mm, construidas
+    en CATIA y resueltas en XFOIL.
+
+    NO se cablea el numero por lo que ya explica el docstring de _metodo_numeros(): las
+    cifras a mano de esta vista caducaron en silencio con la promocion densif.
+
+    EL FILTRO IMPORTA y no es el campo `completo`: ese exige que converjan los DOS
+    metodos de medida (angulo unico y marcha) y deja 30 casos -> 1,64 %. La cifra
+    validada usa las bandas completas EN MARCHA, que son 33 -> 1,78 %. Promediar otra
+    cosa daria un numero distinto del publicado.
+    """
+    import numpy as np
+    ruta = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                        "bateria_web_resultados.json")
+    with open(ruta, encoding="utf-8") as f:
+        casos = json.load(f)
+    comp = [c for c in casos
+            if c.get("LD_real_marcha")
+            and all(v is not None for v in c["LD_real_marcha"].values())]
+    errs = []
+    for c in comp:
+        pred = abs(float(c["LD_pred_banda"]))
+        real = float(np.mean([abs(v) for v in c["LD_real_marcha"].values()]))
+        errs.append(100.0 * abs(pred - real) / real)
+    return float(np.mean(errs))
+
+
 def _metodo_numeros():
     """TODOS los numeros del texto de 'The Method', DERIVADOS de las dos baterias.
 
@@ -1769,6 +1802,7 @@ def _metodo_numeros():
         "sig_j": f"{xj.min():.2f}–{xj.max():.2f}",
         "sig_d": f"{xd.min():.2f}–{xd.max():.2f}",
         "n_medidas": n_med,
+        "web": f"{_error_web():.2f}",   # 1.78: el error de lo que la app entrega
     }
     return _METODO_NUM
 
